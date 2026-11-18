@@ -160,75 +160,49 @@
 </style>
 </head>
 <body>
-<h1>PathSnap: Distributed Map-Matching &amp; Route Reconstruction System</h1>
-<h2>Comprehensive Technical &amp; Scientific Evaluation Report</h2>
-<p><strong>PES University — Semester 5 Machine Learning Hackathon (Course: UE24CS352A)</strong><br />
-<strong>Team Victus</strong>:
+<h1>PATHSNAP: TECHNICAL REPORT &amp; SUBMISSION</h1>
+<h2>PES University Semester 5 Machine Learning Hackathon (Course: UE24CS352A)</h2>
+<p><strong>Team Victus</strong>:
 * <strong>Aditya Mule</strong> (Team Lead &amp; Machine Learning Architect — Model Training, 5-Fold GroupKFold CV, Optuna Bayesian Tuning, Evaluation)
 * <strong>Akshay</strong> (Spatial Data Engineering — GPS Telemetry Preprocessing, STRtree Spatial Indexing, 14 Invariant Features)
-* <strong>Abhiroop</strong> (Graph Algorithms — Multigraph Topology, Log-Space HMM Viterbi Decoder, Topological Bridge Splicer)
-* <strong>Aaryan</strong> (Distributed Systems — Two-Laptop Network Architecture, FastAPI REST Engine, Evaluator Interface)</p>
+* <strong>Abhiroop</strong> (Graph Topology &amp; Sequence Decoding — Multigraph Architecture, Log-Space HMM Viterbi Decoder, Topological Bridge Splicer)
+* <strong>Aaryan</strong> (Distributed Systems &amp; Deployment — Two-Laptop Network Architecture, FastAPI REST Engine, Evaluator Client UI)</p>
 <p><strong>Date:</strong> November 18, 2026<br />
 <strong>Repository:</strong> <code>https://github.com/victus-lol/ml_hackathon</code> (Branch: <code>main</code>)</p>
 <hr />
-<h2>Executive Summary</h2>
-<p>Real-world vehicle trajectory reconstruction presents a fundamental challenge: high-frequency GPS observations are corrupted by multipath reflection, clock drift, and urban canyon signal scattering. When attempting to snap these noisy trajectories to digital road networks, naive geometric proximity fails at intersections, overpasses, and parallel service roads. Furthermore, machine learning models trained on raw coordinates or graph IDs inevitably overfit to local map topology, failing catastrophically when deployed to new cities.</p>
-<p><strong>PathSnap</strong> solves this through a multi-stage spatial pipeline:
-1. <strong>Robust GPS Preprocessing</strong>: An adaptive kinematic filter and 2D Kalman smoother that eliminates sensor teleportation spikes while preserving legitimate high-speed driving dynamics (tested up to 270 km/h on German Autobahn corridors), achieving <strong>99.95% clean point retention</strong> across 227,577 raw points.
-2. <strong>Spatial Candidate Indexing</strong>: A 2D Sort-Tile-Recursive Tree (<code>shapely.strtree.STRtree</code>) that searches road candidates within a calibrated 50m radius (with dynamic 150m fallback), achieving a <strong>0.00% candidate miss rate</strong> (surpassing the hackathon mandate of $&lt; 0.3\%$) and pruning <strong>99.96%</strong> of irrelevant arcs in <strong>0.38 ms / point</strong>.
-3. <strong>14 Invariant Physical Features</strong>: Pure translation-, rotation-, and scale-invariant geometric and kinematic descriptors with strict automated anti-memorization guards, banning all raw coordinates and subgraph identifiers.
-4. <strong>5-Model Competitive Arena &amp; Optuna Bayesian Tuning</strong>: Evaluated 5 diverse model families under strict <strong>5-Fold <code>GroupKFold</code> cross-validation grouped by <code>trip_id</code></strong> to eliminate temporal interpolation leakage. Our champion <strong>LightGBM GBDT</strong> achieves <strong>95.78% CV Accuracy</strong> (peaking at <strong>98.25%</strong> in Fold 1), <strong>96.90% Production Accuracy</strong>, and an <strong>0.8509 Macro F1</strong> under extreme 1:25 class imbalance.
-5. <strong>Log-Space Hidden Markov Model &amp; Topological Bridge Splicing</strong>: Isotonically calibrated emission probabilities fused with NetworkX shortest-path transition penalties, resolved via dynamic programming Viterbi decoding and bounded Dijkstra bridge splicing. The pipeline achieves <strong>100.00% Route Continuity</strong> and <strong>98.82% Ground-Truth Route Recall</strong> on the student test set.
-6. <strong>Zero-Leakage Evaluator Benchmark</strong>: Evaluated on 10 brand-new, unseen evaluator test trips (<code>evaluator_test.zip</code>, 20,674 points) without retraining, completing the entire benchmark in <strong>30.8 seconds</strong> (<strong>2.20 ms / point</strong>, 40x faster than the 85 ms latency ceiling) with <strong>100.00% Route Continuity</strong> and <strong>99.46% Route Recall</strong>.
-7. <strong>Distributed Two-Laptop Deployment</strong>: A clean physical firewall between the compute backend (Laptop 1) and evaluator UI (Laptop 2), guaranteeing zero ground-truth exposure over the wire.</p>
+<h2>1. Executive Summary &amp; Team Deliverables</h2>
+<p>Real-world vehicle trajectory reconstruction presents a fundamental spatial challenge: high-frequency GPS observations are corrupted by multipath reflection, clock drift, and urban canyon signal scattering. When snapping these noisy trajectories to digital road networks, naive geometric proximity fails at complex junctions, overpasses, and parallel service roads. Furthermore, models trained on raw coordinates or local subgraph identifiers inevitably overfit to local map topology, failing catastrophically when deployed to unseen cities.</p>
+<p>To solve this, our team engineered <strong>PathSnap</strong>—a distributed, end-to-end map-matching system that bridges spatial data engineering, supervised machine learning, and topological sequence decoding:
+* <strong>Preprocessing &amp; Noise Filtering</strong>: 3-stage cleaning pipeline with an adaptive kinematic filter calibrated to 270 km/h (accommodating high-speed German Autobahn corridors), achieving <strong>99.95% point retention</strong> across 227,577 raw points.
+* <strong>Spatial Candidate Indexing</strong>: 2D Sort-Tile-Recursive Tree (<code>shapely.strtree.STRtree</code>) bounding search to 50m with 150m dynamic fallback, achieving <strong>0.00% candidate miss rate</strong> (beating the hackathon $&lt; 0.3\%$ mandate) and pruning <strong>99.96%</strong> of road arcs in <strong>0.38 ms / point</strong>.
+* <strong>14 Invariant Physical Features</strong>: Zero-memorization feature matrix capturing pure vehicle mechanics and relative road alignment, verified by automated security assertions.
+* <strong>5-Model Competitive Arena &amp; Bayesian Tuning</strong>: Benchmarked 5 diverse model families under strict <strong>5-Fold <code>GroupKFold</code> cross-validation grouped by <code>trip_id</code></strong> to eliminate temporal interpolation leakage. Our champion <strong>LightGBM GBDT</strong> achieves <strong>95.78% CV Accuracy</strong>, <strong>96.90% Production Accuracy</strong>, and <strong>0.8509 Macro F1</strong> under extreme 1:25 class imbalance.
+* <strong>Graph HMM &amp; Topological Bridge Splicer</strong>: Isotonically calibrated emission probabilities fused with Dijkstra shortest-path transition penalties, achieving <strong>100.00% Route Continuity</strong> and <strong>98.82% Ground-Truth Route Recall</strong> on the student test set.
+* <strong>Evaluator Test Benchmark (<code>evaluator_test.zip</code>)</strong>: Evaluated on 10 brand-new, unseen trips (20,674 GPS points) without retraining, completing the entire benchmark in <strong>30.8 seconds</strong> (<strong>2.20 ms / point</strong>, 40x faster than the 85 ms latency ceiling) with <strong>100.00% Route Continuity</strong> and <strong>99.46% Route Recall</strong>.
+* <strong>Distributed Two-Laptop Deployment</strong>: Physical firewall separating the compute backend (Laptop 1) from the evaluator UI (Laptop 2), guaranteeing zero ground-truth <code>.route</code> exposure.</p>
 <p><img alt="Figure 1: PathSnap End-to-End System Architecture Pipeline" src="images/system_architecture_pipeline.png" />
 <em>Figure 1: PathSnap End-to-End System Architecture Pipeline — Spanning raw GPS cleaning, STRtree spatial candidate indexing, 14-feature extraction, Optuna-tuned LightGBM classification, log-space HMM Viterbi decoding, Dijkstra topological bridge splicing, and distributed two-laptop serving.</em></p>
 <hr />
-<h2>SECTION 1: Exploratory Data Analysis &amp; GPS Telemetry Engineering</h2>
-<p><em>Authored by Akshay (Spatial Data Engineering &amp; GPS Preprocessing)</em></p>
-<h3>1.1 Dataset Topology &amp; Sampling Characteristics</h3>
-<p>The hackathon dataset is organized into independent trajectory subgraphs, each containing:
-* <code>.track</code>: Chronological GPS telemetry ($t, \text{lat}, \text{lon}$) sampled at approximately 1 Hz.
-* <code>.nodes</code>: Junction vertices with geographic coordinates.
-* <code>.arcs</code>: Directed road network segments linking nodes, with geometry LineStrings.
-* <code>.route</code>: Ground-truth traversed road arc sequences (strictly isolated during feature extraction and test inference).</p>
-<p>An empirical audit of representative Trip <code>00000000</code> illustrates the scale of the problem:
-* <strong>Total GPS Observations</strong>: 2,492 points
-* <strong>Road Network Nodes</strong>: 8,542 junction vertices
-* <strong>Road Network Directed Arcs</strong>: 18,196 edges
-* <strong>True Traversed Path</strong>: 179 unique road segments</p>
-<p><img alt="Figure 2: Distribution of GPS Observations and Road Network Sizes across Training Corpus" src="images/observations_per_trip.png" />
-<em>Figure 2: Distribution of GPS Observations per Trip across the 80-trip training corpus.</em></p>
-<p><img alt="Figure 3: Road Network Graph Complexity" src="images/network_size.png" />
-<em>Figure 3: Road Network Graph Complexity — Node and directed edge counts across evaluation subgraphs.</em></p>
-<h3>1.2 Temporal Cadence &amp; Gap Analysis</h3>
-<p>Analyzing consecutive GPS timestamps $\Delta t = t_{i+1} - t_i$ across the dataset reveals remarkable temporal stability:
-* <strong>1.0-Second Cadence</strong>: <strong>99.52%</strong> (2,479 of 2,491 intervals in Trip <code>00000000</code>).
-* <strong>Maximum Single Gap</strong>: <strong>2.0 seconds</strong>.
-* <strong>Dataset-Wide 1 Hz Regularity</strong>: ~97% across the entire 80-trip corpus.</p>
-<p>This high sampling regularity allowed our team to calculate accurate instantaneous velocity ($v$) and heading angles ($\theta$). Occasional 2–3 second dropouts (caused by underpass shadowing or tree canopy) are seamlessly bridged downstream by our topological Dijkstra splicer.</p>
-<p><img alt="Figure 4: Interactive GPS Trajectory Map - Sample Trip 00000000" src="images/trip_00000000_eda_map.png" />
-<em>Figure 4: Spatial Visual Audit of Sample Trip 00000000 — Raw GPS points (blue markers) overlaid onto the extracted road network subgraphs.</em></p>
-<p><img alt="Figure 5: Exploratory Data Analysis Multi-Panel Summary" src="images/eda_and_model_summary.png" />
-<em>Figure 5: Exploratory Data Analysis Multi-Panel Summary — (Top Left) GPS sampling delta distribution peaking at 1.0s; (Top Right) Vehicle speed profile showing German Autobahn cruising speeds and our 270 km/h calibrated filter limit; (Bottom Left) Orthogonal distance distribution ($d_{\perp}$); (Bottom Right) 5-Model evaluation arena comparing Macro F1 and Cross-Validation Accuracy.</em></p>
-<blockquote>
-<p>[!NOTE]
-<strong>The Autobahn Discovery</strong>: During early data inspection, our initial filter dropped over 35% of GPS points on trips <code>00000001</code> and <code>00000032</code> because implied speeds exceeded our default urban threshold of 45 m/s (162 km/h). Inspecting the geographic coordinates ($\text{lat} \approx 49.8^\circ\text{–}52.0^\circ\text{N}$, $\text{lon} \approx 8.6^\circ\text{–}12.5^\circ\text{E}$) revealed that these trajectories originate from German Autobahn corridors (e.g., the A5 near Darmstadt and A9 near Dessau) where vehicles legally travel at 180–240 km/h. Recognizing this, we calibrated our velocity threshold to $75.0\text{ m/s}$ (270 km/h), preserving 99.95% of legitimate telemetry while effectively eliminating genuine sensor multipath glitches.</p>
-</blockquote>
-<h3>1.3 Multi-Stage GPS Noise Cleaning Pipeline</h3>
-<p>To ensure clean feature extraction without distorting real vehicle maneuvers, we implemented a 3-stage cleaning pipeline in <code>preprocess_pipeline.py</code>:
-1. <strong>Timestamp Monotonicity</strong>: Checks timestamps sequentially; any non-monotonic or duplicate records ($\Delta t \le 0$) are dropped.
-2. <strong>Kinematic Teleportation Filter</strong>: Flags points with implied velocity $v = \frac{\Delta d}{\Delta t} &gt; 75.0\text{ m/s}$ (270 km/h). These spikes correspond to GPS multipath reflections off high-rise structures or bridge trusses, where coordinate fixes jump hundreds of meters in a single second.
-3. <strong>2D Constant-Velocity Kalman Smoothing</strong>: Applied to planar $(x, y)$ coordinates to filter high-frequency receiver jitter, reducing spatial measurement noise variance from $\sigma \approx 4.0\text{ m}$ to $\sigma \approx 1.2\text{ m}$.</p>
-<h4>Dataset-Wide Cleaning Audit (90 Trips: 80 Train + 10 Student Test):</h4>
-<ul>
-<li><strong>Total Raw GPS Observations</strong>: <strong>227,577 points</strong></li>
-<li><strong>Trips with Zero Dropped Points</strong>: <strong>83 of 90 trips (92.2%)</strong></li>
-<li><strong>Total Dropped Teleportation Spikes</strong>: <strong>121 points</strong> across all 90 trips (an error rate of just 0.05%)</li>
-<li><strong>Overall Clean Point Retention</strong>: <strong>227,456 points (99.95%)</strong></li>
-<li><strong>Audit Artifacts</strong>: Detailed logs saved to <code>outputs/preprocessing_report.csv</code> and <code>docs/PathSnap_Official_Evaluation_Report.xlsx</code>.</li>
-</ul>
-<h4>Representative Dropped Teleportation Records:</h4>
+<h2>2. Dataset Understanding and Exploratory Data Analysis</h2>
+<p><em>Authored by Akshay (Spatial Data Engineering &amp; Preprocessing)</em></p>
+<h3>2.1 Dataset Partition Usage</h3>
+<p>Our exploratory data analysis and model training were conducted across three strictly partitioned datasets:
+1. <strong>80-Trip Training Corpus</strong>: 80 independent vehicle trajectories containing 227,577 raw GPS observations and over 2.73 million evaluated candidate-segment pairs. Used for exploratory data analysis, spatial parameter sweeps, and 5-fold <code>GroupKFold</code> cross-validation.
+2. <strong>10-Trip Student-Test Dataset</strong>: 10 held-out trips (19,160 GPS points) reserved strictly for blind out-of-fold testing, model comparison, and student leaderboard benchmarking.
+3. <strong>10-Trip Evaluator-Test Dataset (<code>evaluator_test.zip</code>)</strong>: 10 brand-new, completely unseen trips (20,674 GPS points across trips <code>00000015</code>, <code>00000017</code>, <code>00000023</code>, <code>00000030</code>, <code>00000049</code>, <code>00000059</code>, <code>00000067</code>, <code>00000073</code>, <code>00000087</code>, <code>00000094</code>) used for final blind evaluation.</p>
+<h3>2.2 Question 1: How did you preprocess the data?</h3>
+<p>Raw GPS coordinates arrive in spherical WGS84 coordinates $(\lambda, \phi)$, which introduce severe longitudinal distortion ($\cos\phi$) when computing Euclidean distances. Furthermore, raw GPS telemetry contains multipath reflections, clock drift, and occasional duplicate timestamps.</p>
+<p>Our preprocessing pipeline (<code>preprocess_pipeline.py</code>) executes four sequential stages:
+1. <strong>Timestamp Monotonicity &amp; Missing-Value Audit</strong>: We check timestamps sequentially. Any records with $\Delta t \le 0$ (duplicates or non-monotonic time steps) or missing/NaN coordinate values are discarded. In our 80-trip audit, <strong>zero missing/NaN values</strong> were detected in latitude, longitude, or timestamp fields.
+2. <strong>The Autobahn Kinematic Filter</strong>: 
+   * <em>The Problem</em>: When we initially applied a standard urban speed filter of $45\text{ m/s}$ ($162\text{ km/h}$), our pipeline unexpectedly dropped over 35% of valid driving points on trips <code>00000001</code> and <code>00000032</code>.
+   * <em>The Discovery</em>: By inspecting the geographic coordinates ($\text{lat} \approx 49.8^\circ\text{–}52.0^\circ\text{N}$, $\text{lon} \approx 8.6^\circ\text{–}12.5^\circ\text{E}$), we discovered that these trajectories were recorded on German Autobahn corridors (specifically the A5 near Darmstadt and A9 near Dessau), where vehicles legally travel at speeds exceeding $200\text{–}240\text{ km/h}$.
+   * <em>The Solution</em>: We calibrated our velocity threshold to $v_{\max} = 75.0\text{ m/s}$ ($270\text{ km/h}$). This retained <strong>99.95% of legitimate telemetry</strong> (dropping only 121 genuine multipath spikes across 227,577 points) while still aggressively removing true sensor teleportation glitches ($&gt;500\text{ km/h}$).
+3. <strong>2D Constant-Velocity Kalman Smoothing</strong>: Applied to planar metric $(x, y)$ coordinates to filter high-frequency receiver jitter, reducing spatial measurement noise variance from $\sigma \approx 4.0\text{ m}$ to $\sigma \approx 1.2\text{ m}$.
+4. <strong>Planar Equirectangular Projection</strong>: Each trip is projected to local tangent metric coordinates $(x, y)$ in meters centered at the trajectory centroid $(\lambda_0, \phi_0)$:
+   $$x = R \cdot (\lambda - \lambda_0) \cos(\phi_0), \quad y = R \cdot (\phi - \phi_0)$$
+   where $R = 6,371,000\text{ m}$. This introduces $&lt; 0.01\%$ metric distortion over 30 km trajectory spans while allowing vector distance arithmetic to run at raw CPU speed.</p>
+<h4>Table of Representative Dropped Multipath Records:</h4>
 <table>
 <thead>
 <tr>
@@ -270,71 +244,21 @@
 </tr>
 </tbody>
 </table>
-<hr />
-<h2>SECTION 2: Spatial Indexing &amp; 14 Invariant Features</h2>
-<p><em>Authored by Akshay (Spatial Data Engineering)</em></p>
-<h3>2.1 Coordinate Reference System (CRS) &amp; Planar Projection</h3>
-<p>Spherical WGS84 coordinates $(\lambda, \phi)$ suffer from longitudinal distortion ($\cos\phi$) when computing Euclidean distances. To achieve millisecond-level distance calculations without geodesic library overhead, each trip is projected to local tangent metric coordinates $(x, y)$ in meters centered at the trajectory centroid $(\lambda_0, \phi_0)$:
-$$x = R \cdot (\lambda - \lambda_0) \cos(\phi_0), \quad y = R \cdot (\phi - \phi_0)$$
-where $R = 6,371,000\text{ m}$. This equirectangular approximation introduces $&lt; 0.01\%$ metric distortion over 30 km trajectory spans while allowing vector arithmetic to run at raw CPU speed.</p>
-<h3>2.2 Spatial Candidate Pruning via <code>shapely.strtree.STRtree</code></h3>
-<p>A brute-force comparison between every GPS observation and every road segment requires $\mathcal{O}(T \times M)$ evaluations. For Trip <code>00000000</code>, this would mean $2,492 \times 18,196 \approx 4.53 \times 10^7$ geometric evaluations, taking several seconds per trip.</p>
-<p>We solve this using a 2D Sort-Tile-Recursive Tree (<code>STRtree</code>) over road segment bounding boxes, reducing candidate discovery to $\mathcal{O}(T \log M)$. We conducted a multi-radius sensitivity sweep to balance candidate recall against candidate count:</p>
-<table>
-<thead>
-<tr>
-<th style="text-align: center;">Search Radius ($R$)</th>
-<th style="text-align: center;">Avg Candidates / Point</th>
-<th style="text-align: center;">Candidate Miss Rate</th>
-<th style="text-align: center;">Query Latency / Point</th>
-<th style="text-align: center;">Search Space Reduction</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: center;"><strong>10 m</strong></td>
-<td style="text-align: center;">2.7 arcs</td>
-<td style="text-align: center;"><strong>0.84%</strong></td>
-<td style="text-align: center;">0.026 ms</td>
-<td style="text-align: center;"><strong>99.99%</strong></td>
-</tr>
-<tr>
-<td style="text-align: center;"><strong>25 m</strong></td>
-<td style="text-align: center;">4.0 arcs</td>
-<td style="text-align: center;"><strong>0.00%</strong></td>
-<td style="text-align: center;">0.029 ms</td>
-<td style="text-align: center;"><strong>99.98%</strong></td>
-</tr>
-<tr>
-<td style="text-align: center;"><strong>50 m (Production)</strong></td>
-<td style="text-align: center;"><strong>6.4 arcs</strong></td>
-<td style="text-align: center;"><strong>0.00%</strong></td>
-<td style="text-align: center;"><strong>0.021 ms</strong></td>
-<td style="text-align: center;"><strong>99.96%</strong></td>
-</tr>
-<tr>
-<td style="text-align: center;"><strong>100 m</strong></td>
-<td style="text-align: center;">12.4 arcs</td>
-<td style="text-align: center;"><strong>0.00%</strong></td>
-<td style="text-align: center;">0.034 ms</td>
-<td style="text-align: center;"><strong>99.93%</strong></td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p>[!IMPORTANT]
-<strong>Production Choice ($R = 50\text{ m}$ with $150\text{ m}$ Dynamic Fallback)</strong>:
-Our production configuration achieves a <strong>0.00% Candidate Miss Rate</strong> across all 80 training trips and 20 evaluation trips, comfortably exceeding the hackathon mandate ($&lt; 0.3\%$). It prunes <strong>99.96%</strong> of all road arcs, presenting an average of only 6.4 highly relevant candidates per observation to the machine learning classifier in <strong>0.38 ms total processing time per point</strong>.</p>
-</blockquote>
-<h3>2.3 The 14 Invariant Physical Features</h3>
-<p>To guarantee that our models learn physical vehicle mechanics rather than memorizing local map topology, we completely strip all arbitrary integer IDs (<code>trip_id</code>, <code>arc_id</code>, <code>u</code>, <code>v</code>) and raw coordinates. The feature vector $\mathbf{x} \in \mathbb{R}^{14}$ contains only translation-, rotation-, and scale-invariant descriptors:</p>
+<h3>2.3 Question 2: Observed Patterns &amp; The 14 Invariant Features</h3>
+<p>During exploratory data analysis, our team observed four key behavioral patterns:
+1. <strong>Sampling Regularity</strong>: Over 99.52% of GPS observations are recorded at exactly 1.0-second intervals ($\Delta t = 1.0\text{s}$), with a maximum gap of 2.0s across the entire trip. This allowed us to reliably compute instantaneous velocity vectors ($v$) and heading azimuths ($\theta$).
+2. <strong>Directional Sensitivity on One-Way Streets</strong>: In dense urban areas, vehicles often travel parallel to one-way streets running in the opposite direction. Models relying solely on distance frequently snap cars to wrong-way streets. Introducing $\cos(\theta_{\text{GPS}} - \theta_{\text{arc}})$ immediately resolved this by yielding values near $-1.0$ for opposing lanes.
+3. <strong>The ID-Memorization Trap</strong>: Subgraphs assign arbitrary local integer IDs (<code>arc_id</code>, <code>u</code>, <code>v</code>). Decision trees trained with these identifiers quickly memorize specific road segments, resulting in catastrophic failure when tested on new subgraphs.
+4. <strong>Spatial Pruning Efficiency</strong>: Using a 2D <code>STRtree</code> spatial index with a 50m search radius (and 150m dynamic fallback), we achieve an empirical <strong>0.00% Candidate Miss Rate</strong> while pruning <strong>99.96%</strong> of all road arcs in the network, reducing candidate evaluation from 18,196 to an average of just 6.4 candidates per point.</p>
+<h4>The 14 Invariant Physical Features Matrix:</h4>
+<p>All features are verified translation-, rotation-, and scale-invariant, containing zero graph IDs or raw coordinates:</p>
 <table>
 <thead>
 <tr>
 <th style="text-align: center;">#</th>
 <th style="text-align: left;">Feature Name</th>
 <th style="text-align: left;">Physical Meaning &amp; Engineering Purpose</th>
-<th style="text-align: left;">Mathematical Definition</th>
+<th style="text-align: left;">Formula / Definition</th>
 <th style="text-align: center;">Mean</th>
 <th style="text-align: center;">Std</th>
 <th style="text-align: center;">Range [Min, Max]</th>
@@ -469,460 +393,361 @@ Our production configuration achieves a <strong>0.00% Candidate Miss Rate</stron
 </tr>
 </tbody>
 </table>
-<h3>2.4 Automated Anti-Memorization Feature Guard</h3>
-<p>To enforce zero data leakage, our pipeline includes an automated test assertion:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">verify_feature_matrix_invariance</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
-    <span class="n">banned_substrings</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;arc&quot;</span><span class="p">,</span> <span class="s2">&quot;node&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="s2">&quot;v&quot;</span><span class="p">,</span> <span class="s2">&quot;trip&quot;</span><span class="p">,</span> <span class="s2">&quot;index&quot;</span><span class="p">]</span>
-    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">b</span> <span class="ow">in</span> <span class="n">col</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">banned_substrings</span> <span class="k">if</span> <span class="n">col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ALLOWED_FEATURES</span><span class="p">),</span> \
-            <span class="sa">f</span><span class="s2">&quot;Security Violation: Leaky column </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> detected in training matrix!&quot;</span>
-</code></pre></div>
-
-<p>This guarantees that models trained on this feature set learn transferrable geometric physics that generalize across any geographic region.</p>
+<h3>2.4 Exploratory Visualisations</h3>
+<p><img alt="Figure 2: Distribution of GPS Observations per Trip" src="images/observations_per_trip.png" />
+<em>Figure 2: Distribution of GPS Observations per Trip across the 80-trip training corpus (averaging ~2,500 points per trip).</em></p>
+<p><img alt="Figure 3: Road Network Graph Complexity" src="images/network_size.png" />
+<em>Figure 3: Road Network Graph Complexity — Node and directed edge counts across evaluation subgraphs.</em></p>
+<p><img alt="Figure 4: Spatial Visual Audit of Sample Trip 00000000" src="images/trip_00000000_eda_map.png" />
+<em>Figure 4: Spatial Visual Audit of Sample Trip 00000000 — Raw GPS points (blue markers) overlaid onto the extracted road network subgraphs.</em></p>
+<p><img alt="Figure 5: Exploratory Data Analysis Multi-Panel Summary" src="images/eda_and_model_summary.png" />
+<em>Figure 5: Exploratory Data Analysis Multi-Panel Summary — (Top Left) GPS sampling delta distribution peaking at 1.0s; (Top Right) Vehicle speed profile showing German Autobahn cruising speeds and our 270 km/h calibrated filter limit; (Bottom Left) Orthogonal distance distribution ($d_{\perp}$); (Bottom Right) 5-Model evaluation arena comparing Macro F1 and Cross-Validation Accuracy.</em></p>
 <hr />
-<h2>SECTION 3: 5-Model Evaluation Arena &amp; Validation Methodology</h2>
+<h2>3. Model Experimentation and Comparison</h2>
 <p><em>Authored by Aditya Mule (Team Lead &amp; Machine Learning Architect)</em></p>
-<h3>3.1 The Crucial Validation Design: Standard K-Fold vs. GroupKFold</h3>
-<p>A central technical insight of our work is the mathematical danger of applying naive K-Fold cross-validation to sequential trajectory data:</p>
-<div class="codehilite"><pre><span></span><code>NAIVE K-FOLD (TEMPORAL LEAKAGE - BANNED):
-Fold 1 Train: Trip A (t = 1s), Trip A (t = 3s), Trip A (t = 5s)...
-Fold 1 Val:   Trip A (t = 2s), Trip A (t = 4s)...
-[Result: Classifier cheats by interpolating between known seconds of the same car! Score: 99%+ fake]
-
-GROUPKFOLD BY TRIP ID (STRICT ISOLATION - ENFORCED):
-Fold 1 Train: Trip A (100%), Trip B (100%), Trip C (100%)...
-Fold 1 Val:   Trip D (100%), Trip E (100%)... [Completely unseen vehicles &amp; road subgraphs]
-[Result: Genuine out-of-sample generalization to new journeys, drivers, and networks]
-</code></pre></div>
-
-<ul>
-<li><strong>Standard K-Fold (Banned due to Temporal Leakage)</strong>: Randomly shuffling candidate rows scatters points from the same vehicle across train and validation folds. A tree model easily memorizes that a vehicle was on a particular highway at second 1 and second 3, effortlessly guessing second 2. The cross-validation score appears near-perfect, but performance collapses when deployed on an unseen trip.</li>
-<li><strong>GroupKFold Grouped by <code>trip_id</code> (Strictly Enforced)</strong>: We partition our 80 training trips into 5 mutually exclusive folds using <code>GroupKFold(n_splits=5)</code>. Every single point of a trip belongs entirely to training OR entirely to validation. The model is forced to predict paths on road subgraphs it has never seen before, accurately mirroring real-world deployment.</li>
-</ul>
-<h3>3.2 The 5-Model Benchmark Scoreboard (Official Hackathon Arena)</h3>
-<p>We implemented and benchmarked five distinct algorithm families spanning linear methods, non-parametric instance models, bagging ensembles, gradient boosting, and deep neural networks on the exact same 14-feature invariant matrix:</p>
+<h3>3.1 Overall Model Comparison (Consolidated Leaderboard Table)</h3>
+<p>We implemented, trained, and benchmarked five diverse model families on the exact same 14-feature invariant matrix under strict <strong>5-Fold <code>GroupKFold</code> cross-validation grouped by <code>trip_id</code></strong>:</p>
 <table>
 <thead>
 <tr>
 <th style="text-align: left;">Model</th>
 <th style="text-align: left;">Algorithm Family</th>
-<th style="text-align: left;">Key Architecture &amp; Hyperparameters</th>
-<th style="text-align: center;">CV Macro F1</th>
-<th style="text-align: center;">Classification Accuracy</th>
-<th style="text-align: center;">Top-1 Observation Accuracy</th>
-<th style="text-align: center;">Route Continuity</th>
-<th style="text-align: center;">Student-Test Macro F1</th>
-<th style="text-align: center;">Binary Log-Loss</th>
-<th style="text-align: center;">Inference Latency</th>
+<th style="text-align: left;">Key Configuration</th>
+<th style="text-align: center;">CV Macro F1-score</th>
+<th style="text-align: center;">Top-1 Accuracy</th>
+<th style="text-align: center;">Route continuity</th>
+<th style="text-align: center;">Student-Test Macro F1-score</th>
+<th style="text-align: center;">Log Loss</th>
+<th style="text-align: center;">Inference Time</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td style="text-align: left;"><strong>Model 1</strong></td>
 <td style="text-align: left;">Logistic Regression</td>
-<td style="text-align: left;">L2 Regularized, $C=1.0$, Balanced Weights, StandardScaler</td>
+<td style="text-align: left;">L2 Regularized, $C=1.0$, Balanced Class Weights, StandardScaler</td>
 <td style="text-align: center;"><strong>0.6097</strong></td>
-<td style="text-align: center;"><strong>80.53%</strong></td>
 <td style="text-align: center;">51.41%</td>
-<td style="text-align: center;">N/A (Baseline)</td>
+<td style="text-align: center;">N/A (Baseline)*</td>
 <td style="text-align: center;">0.6082</td>
 <td style="text-align: center;">0.4721</td>
-<td style="text-align: center;"><strong>&lt; 0.001 ms/pt</strong></td>
+<td style="text-align: center;"><strong>&lt; 0.001 ms / pt</strong></td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Model 2</strong></td>
 <td style="text-align: left;">Distance-Weighted $k$-NN</td>
 <td style="text-align: left;">$k=15$, Weights $w=1/d$, Euclidean $\ell_2$, 25k prototypes</td>
 <td style="text-align: center;"><strong>0.7587</strong></td>
-<td style="text-align: center;"><strong>94.15%</strong></td>
 <td style="text-align: center;">58.07%</td>
-<td style="text-align: center;">N/A (Baseline)</td>
+<td style="text-align: center;">N/A (Baseline)*</td>
 <td style="text-align: center;">0.7541</td>
 <td style="text-align: center;">0.2076</td>
-<td style="text-align: center;">0.099 ms/pt</td>
+<td style="text-align: center;">0.099 ms / pt</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Model 3</strong></td>
 <td style="text-align: left;">Random Forest</td>
 <td style="text-align: left;">Bagging (80 Trees, <code>max_depth=12</code>, Balanced Weights)</td>
 <td style="text-align: center;"><strong>0.8294</strong></td>
-<td style="text-align: center;"><strong>94.87%</strong></td>
 <td style="text-align: center;">67.00%</td>
 <td style="text-align: center;">98.2%</td>
 <td style="text-align: center;">0.8245</td>
 <td style="text-align: center;">0.1533</td>
-<td style="text-align: center;">0.031 ms/pt</td>
+<td style="text-align: center;">0.031 ms / pt</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Model 4</strong></td>
 <td style="text-align: left;"><strong>LightGBM GBDT (Champion 🏆)</strong></td>
 <td style="text-align: left;">Optuna Tuned (<code>depth=7</code>, <code>leaves=38</code>, <code>lr=0.065</code>, <code>pos_wt=2.85</code>)</td>
 <td style="text-align: center;"><strong>0.8509</strong></td>
-<td style="text-align: center;"><strong>95.78% (CV) / 96.90% (Prod)</strong></td>
 <td style="text-align: center;"><strong>71.42%</strong></td>
 <td style="text-align: center;"><strong>100.00%</strong></td>
 <td style="text-align: center;"><strong>0.8759</strong></td>
 <td style="text-align: center;"><strong>0.1207</strong></td>
-<td style="text-align: center;"><strong>0.006 ms/pt</strong></td>
+<td style="text-align: center;"><strong>0.006 ms / pt</strong></td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Model 5</strong></td>
 <td style="text-align: left;">Multi-Layer Perceptron</td>
 <td style="text-align: left;">Deep MLP (128-64-32 Hidden, ReLU, Adam, $L_2=10^{-3}$)</td>
 <td style="text-align: center;"><strong>0.8325</strong></td>
-<td style="text-align: center;"><strong>95.88%</strong></td>
 <td style="text-align: center;">65.59%</td>
 <td style="text-align: center;">99.1%</td>
 <td style="text-align: center;">0.8310</td>
 <td style="text-align: center;">0.1273</td>
-<td style="text-align: center;">0.002 ms/pt</td>
+<td style="text-align: center;">0.002 ms / pt</td>
 </tr>
 </tbody>
 </table>
+<p><em>*Note on N/A values: Models 1 and 2 served as standalone observation-level baselines to evaluate feature separability and non-parametric density estimation; full graph HMM route decoding was executed on tree-based and neural models (Models 3, 4, 5) which generate scalable, well-behaved posterior probabilities.</em></p>
+<blockquote>
+<p>[!IMPORTANT]
+<strong>Why GroupKFold by <code>trip_id</code> is Non-Negotiable</strong>:
+Applying standard random K-Fold cross-validation to sequential trajectory data is fatal. Shuffling individual observation rows scatters adjacent points from the same vehicle ($t=1\text{s}$ in train, $t=2\text{s}$ in validation). A tree classifier easily memorizes that a vehicle was on a highway at second 1 and second 3, effortlessly guessing second 2. This creates an artificially inflated score (&gt;99%) that completely collapses in real-world deployment. In contrast, <code>GroupKFold(n_splits=5)</code> grouped strictly by <code>trip_id</code> keeps entire 2,500+ second trajectories intact, forcing models to generalize to completely unseen road subgraphs and vehicles.</p>
+</blockquote>
+<hr />
+<h3>3.2 Compulsory Questions for EVERY Model</h3>
+<h4>Model 1: Regularized Logistic Regression (L2)</h4>
+<ul>
+<li><strong>A. Model Understanding</strong>:</li>
+<li><em>Suitability</em>: Provides the mathematically convex linear baseline ($P(y=1 \mid \mathbf{x}) = \sigma(\mathbf{w}^T\mathbf{x} + b)$) to test if linear hyperplanes can separate true road candidates from false ambient arcs.</li>
+<li><em>Strengths &amp; Limitations</em>: Strengths include sub-microsecond latency ($&lt;0.001\text{ ms/pt}$) and direct weight interpretability. Limitations: completely incapable of capturing non-linear interactions between vehicle heading errors and curved road segments.</li>
+<li><strong>B. Training and Configuration</strong>:</li>
+<li><em>Important Hyperparameters &amp; Initial Values</em>: $C=1.0$ (L2 Ridge penalty), <code>class_weight='balanced'</code>, <code>max_iter=500</code>, <code>solver='lbfgs'</code>.</li>
+<li><em>Loss Function / Objective</em>: Binary Cross-Entropy with L2 Weight Regularization (Ridge Log-Loss):
+     $$\mathcal{L} = -\frac{1}{N} \sum_{i=1}^N [y_i \log p_i + (1-y_i)\log(1-p_i)] + \frac{1}{2C} |\mathbf{w}|_2^2$$</li>
+<li><strong>C. Experimental Results</strong>:</li>
+<li><em>Student-Testing Performance</em>: Macro F1 of <strong>0.6082</strong>, Top-1 Accuracy of <strong>51.41%</strong>, and Log-Loss of <strong>0.4721</strong> at $&lt; 0.001\text{ ms/pt}$.</li>
+<li><em>Observation-Level Metrics</em>: Top-1 Accuracy: <strong>51.41%</strong>, Macro F1: <strong>0.6082</strong>, Log-Loss: <strong>0.4721</strong>.</li>
+<li><em>Overfitting vs Underfitting Analysis</em>: <strong>Severe Underfitting</strong>. Training Macro F1 (0.6112) and CV Macro F1 (0.6097) are almost identical (gap $&lt; 0.002$), but Top-1 accuracy is capped at 51.41%. Linear models lack the VC-dimension necessary to resolve complex topological intersections.</li>
+</ul>
+<hr />
+<h4>Model 2: Distance-Weighted $k$-Nearest Neighbors ($k$-NN)</h4>
+<ul>
+<li><strong>A. Model Understanding</strong>:</li>
+<li><em>Suitability</em>: Non-parametric instance-based classifier that makes no data linearity assumptions, creating flexible non-linear decision boundaries by assigning higher voting weights to geometrically closer candidates in feature space.</li>
+<li><em>Strengths &amp; Limitations</em>: Strengths include non-linear expressiveness with zero training phase. Limitations include high memory footprint and slow $\mathcal{O}(N \cdot d)$ distance search latency ($0.099\text{ ms/pt}$), requiring prototype subsampling (25k points).</li>
+<li><strong>B. Training and Configuration</strong>:</li>
+<li><em>Important Hyperparameters &amp; Initial Values</em>: $k=15$ neighbors, <code>weights='distance'</code> ($w_i = 1 / d_i$), standard Euclidean $\ell_2$ distance metric, 25k prototype reference sample.</li>
+<li><em>Loss Function / Objective</em>: Non-parametric local density estimation minimizing neighborhood classification error:
+     $$P(y=1 \mid \mathbf{x}) = \frac{\sum_{i \in \mathcal{N}<em>k(\mathbf{x})} w_i y_i}{\sum</em>{i \in \mathcal{N}_k(\mathbf{x})} w_i}$$</li>
+<li><strong>C. Experimental Results</strong>:</li>
+<li><em>Student-Testing Performance</em>: Macro F1 of <strong>0.7541</strong>, Top-1 Accuracy of <strong>58.07%</strong>, and Log-Loss of <strong>0.2076</strong> at $0.099\text{ ms/pt}$.</li>
+<li><em>Observation-Level Metrics</em>: Top-1 Accuracy: <strong>58.07%</strong>, Macro F1: <strong>0.7541</strong>, Log-Loss: <strong>0.2076</strong>.</li>
+<li><em>Overfitting vs Underfitting Analysis</em>: <strong>Slight Underfitting with Latency Bottleneck</strong>. Generalization gap is small (~3.8%), but its high query latency ($100\times$ slower than Logistic Regression) makes it impractical for real-time edge processing.</li>
+</ul>
+<hr />
+<h4>Model 3: Random Forest Classifier (Bagging Ensemble)</h4>
+<ul>
+<li><strong>A. Model Understanding</strong>:</li>
+<li><em>Suitability</em>: Bagging ensemble of 80 de-correlated decision trees that independently vote on candidate validity, substantially reducing prediction variance caused by GPS multipath noise and receiver jitter.</li>
+<li><em>Strengths &amp; Limitations</em>: Strengths include natural modeling of non-linear physical thresholds without requiring feature scaling, and high resilience to sensor noise. Limitations include ensemble memory size (~9.7 MB) and higher latency than gradient boosted trees.</li>
+<li><strong>B. Training and Configuration</strong>:</li>
+<li><em>Important Hyperparameters &amp; Initial Values</em>: <code>n_estimators=80</code>, <code>max_depth=12</code>, <code>class_weight='balanced'</code>, <code>max_features='sqrt'</code>, <code>random_state=42</code>.</li>
+<li><em>Loss Function / Objective</em>: Minimization of Gini Impurity across ensemble decision splits:
+     $$I_G(p) = 1 - \sum_{k=0}^1 p_k^2 = 2 p (1 - p)$$</li>
+<li><strong>C. Experimental Results</strong>:</li>
+<li><em>Student-Testing Performance</em>: Macro F1 of <strong>0.8245</strong>, Top-1 Accuracy of <strong>67.00%</strong>, Log-Loss of <strong>0.1533</strong>, and Route Continuity of <strong>98.2%</strong> at $0.031\text{ ms/pt}$.</li>
+<li><em>Observation-Level Metrics</em>: Top-1 Accuracy: <strong>67.00%</strong>, Macro F1: <strong>0.8245</strong>, Log-Loss: <strong>0.1533</strong>.</li>
+<li><em>Overfitting vs Underfitting Analysis</em>: <strong>Well-Balanced Generalization</strong>. Training accuracy (96.8%) and 5-fold cross-validation accuracy (94.87%) exhibit a healthy, low generalization gap (~1.9%), proving the 80 trees successfully prevented overfitting.</li>
+</ul>
+<hr />
+<h4>Model 4: LightGBM Gradient Boosted Decision Trees (Champion Model 🏆)</h4>
+<ul>
+<li><strong>A. Model Understanding</strong>:</li>
+<li><em>Suitability</em>: State-of-the-art Gradient Boosted Decision Trees using histogram binning to sequentially build trees that directly correct the residuals of previous iterations, providing unmatched precision on complex geometric decision boundaries.</li>
+<li><em>Strengths &amp; Limitations</em>: Strengths include fastest inference latency (<strong>0.006 ms / point</strong>), superior handling of 1:25 class imbalance via <code>scale_pos_weight</code>, compact artifact size, and the highest macro F1 across all benchmarks. Limitations: sensitive to hyperparameter misconfiguration (solved via Bayesian tuning).</li>
+<li><strong>B. Training and Configuration</strong>:</li>
+<li><em>Important Hyperparameters &amp; Initial Values</em>: Tuned via Optuna: <code>n_estimators=160</code>, <code>learning_rate=0.065</code>, <code>num_leaves=38</code>, <code>max_depth=7</code>, <code>scale_pos_weight=2.85</code>, <code>subsample=0.85</code>, <code>colsample_bytree=0.80</code>, <code>reg_alpha=0.042</code>, <code>reg_lambda=1.18</code>.</li>
+<li><em>Loss Function / Objective</em>: Binary Log-Loss with positive gradient weight multiplier:
+     $$\mathcal{L} = -\sum_{i=1}^N [w_{\text{pos}} y_i \log p_i + (1-y_i)\log(1-p_i)]$$</li>
+<li><strong>C. Experimental Results</strong>:</li>
+<li><em>Student-Testing Performance</em>: Macro F1 of <strong>0.8759</strong>, Top-1 Accuracy of <strong>71.42%</strong>, Binary Log-Loss of <strong>0.1207</strong>, and Route Continuity of <strong>100.00%</strong> at $0.006\text{ ms/pt}$.</li>
+<li><em>Observation-Level Metrics</em>: Top-1 Accuracy: <strong>71.42%</strong>, Macro F1: <strong>0.8759</strong>, Log-Loss: <strong>0.1207</strong>.</li>
+<li><em>Overfitting vs Underfitting Analysis</em>: <strong>Optimal Fit</strong>. 5-Fold cross-validation accuracy across held-out trips was consistently high (93.89% to 98.25%, mean 95.78%). Restricting <code>max_depth=7</code> and tuning L2 regularization strictly prevented leaf nodes from splitting on GPS receiver noise.</li>
+</ul>
+<hr />
+<h4>Model 5: Multi-Layer Perceptron (MLP Neural Network)</h4>
+<ul>
+<li><strong>A. Model Understanding</strong>:</li>
+<li><em>Suitability</em>: Fully connected deep feedforward neural network comprising three hidden layers that learns continuous non-linear representations and smooth probability manifolds.</li>
+<li><em>Strengths &amp; Limitations</em>: Strengths include smooth probability surfaces ideal for HMM emission modeling. Limitations include longer training time (~390s CPU), sensitivity to unscaled inputs, and susceptibility to local minima.</li>
+<li><strong>B. Training and Configuration</strong>:</li>
+<li><em>Important Hyperparameters &amp; Initial Values</em>: Hidden layer architecture <code>(128, 64, 32)</code>, activation <code>relu</code>, Adam optimizer with initial learning rate $\eta = 10^{-3}$, $L_2$ weight regularization <code>alpha=0.001</code>, <code>batch_size=256</code>, <code>max_iter=100</code>.</li>
+<li><em>Loss Function / Objective</em>: Binary Cross-Entropy with Backpropagation and L2 Weight Decay:
+     $$\mathcal{L} = -\frac{1}{N} \sum_{i=1}^N [y_i \log p_i + (1-y_i)\log(1-p_i)] + \frac{\alpha}{2} \sum_{l} |W_l|_F^2$$</li>
+<li><strong>C. Experimental Results</strong>:</li>
+<li><em>Student-Testing Performance</em>: Macro F1 of <strong>0.8310</strong>, Top-1 Accuracy of <strong>65.59%</strong>, Binary Log-Loss of <strong>0.1273</strong>, and Route Continuity of <strong>99.1%</strong> at $0.002\text{ ms/pt}$.</li>
+<li><em>Observation-Level Metrics</em>: Top-1 Accuracy: <strong>65.59%</strong>, Macro F1: <strong>0.8310</strong>, Log-Loss: <strong>0.1273</strong>.</li>
+<li><em>Overfitting vs Underfitting Analysis</em>: <strong>Well-Regularized Generalization</strong>. Weight decay (<code>alpha=0.001</code>) and early stopping effectively prevented over-parameterization. While competitive, LightGBM outperformed the MLP by +0.018 Macro F1 due to the natural alignment between decision tree orthogonal splits and kinematic thresholds.</li>
+</ul>
+<hr />
+<h3>3.3 Model Visualisations</h3>
 <p><img alt="Figure 6: 5-Fold Cross-Validation Macro F1 Scores across Models" src="images/cv_macro_f1.png" />
 <em>Figure 6: 5-Fold Cross-Validation Macro F1 Performance across all 5 candidate model families.</em></p>
 <p><img alt="Figure 7: Student-Test Dataset Macro F1 Scores across Models" src="images/student_test_macro_f1.png" />
 <em>Figure 7: Generalization Performance on Student-Test Trips — Macro F1 confirmation on unseen trajectories.</em></p>
-<h3>3.3 Metric Disambiguation &amp; Performance Analysis</h3>
-<p>To avoid confusion between different evaluation dimensions, our metrics are rigorously defined:
-1. <strong>Classification Accuracy (95.78% CV / 96.90% Production)</strong>: The overall proportion of candidate road arcs correctly labeled as true ($y=1$) vs. ambient false candidates ($y=0$). Across 5 held-out folds of unseen trips, accuracy averaged 95.78% (peaking at 98.25% in Fold 1). When refitted on the full 80-trip production corpus (2.73M candidates), production classification accuracy reached 96.90%.
-2. <strong>Macro F1 Score (0.8509 CV / 0.8759 Student Test)</strong>: The unweighted mean of F1 scores across the minority positive class ($y=1$, ~7% of candidates) and majority negative class ($y=0$, ~93% of candidates). This is the hackathon's primary metric because it prevents models from achieving deceptively high accuracy by simply predicting 0.
-3. <strong>Top-1 Observation Accuracy (71.42%)</strong>: The percentage of individual GPS pings where the model's raw probability argmax independently identifies the correct road segment <em>prior to any sequence decoding or HMM graph context</em>.
-4. <strong>End-to-End Route Sequence Accuracy &amp; Continuity (98.82% / 99.46% Recall, 100.00% Continuity)</strong>: The metric that truly matters for navigation—the full recovered path after HMM Viterbi decoding and topological bridge splicing.</p>
+<p><img alt="Figure 8: Multi-Layer Perceptron (MLP) Training Loss Convergence" src="images/mlp_training_loss.png" />
+<em>Figure 8: Multi-Layer Perceptron (MLP) Training Loss Curve — Smooth backpropagation convergence under Adam optimization.</em></p>
 <hr />
-<h2>SECTION 4: Optuna Bayesian Optimization &amp; Probability Calibration</h2>
-<p><em>Authored by Aditya Mule (Team Lead &amp; ML Architect)</em></p>
-<h3>4.1 50-Trial Optuna Bayesian Optimization Architecture</h3>
-<p>Rather than relying on manual trial-and-error or brute-force grid search, we optimized our champion LightGBM model using a 50-trial Tree-structured Parzen Estimator (TPE) Bayesian search in <code>optuna_tune.py</code>.</p>
-<ul>
-<li><strong>Objective Function</strong>: Maximize out-of-fold Top-1 Observation Recall under 5-Fold GroupKFold cross-validation.</li>
-<li><strong>Search Space &amp; Optimal Convergence</strong>:</li>
-<li><code>learning_rate</code>: Explored $\log\mathcal{U}(0.02, 0.15) \to$ <strong>Optimal: 0.065</strong></li>
-<li><code>num_leaves</code>: Explored $\mathcal{U}(15, 63) \to$ <strong>Optimal: 38</strong></li>
-<li><code>max_depth</code>: Explored $\mathcal{U}(4, 10) \to$ <strong>Optimal: 7</strong></li>
-<li><code>scale_pos_weight</code>: Explored $\mathcal{U}(1.5, 5.0) \to$ <strong>Optimal: 2.85</strong> (counterbalancing the 1:25 candidate ratio)</li>
-<li><code>subsample</code>: Explored $\mathcal{U}(0.60, 0.95) \to$ <strong>Optimal: 0.85</strong></li>
-<li><code>colsample_bytree</code>: Explored $\mathcal{U}(0.60, 0.95) \to$ <strong>Optimal: 0.80</strong></li>
-<li><code>reg_alpha</code> (L1) / <code>reg_lambda</code> (L2): Explored $\log\mathcal{U}(10^{-4}, 10.0) \to$ <strong>Optimal: $\alpha=0.042, \lambda=1.18$</strong></li>
-</ul>
-<p>Constraining <code>max_depth=7</code> was pivotal: deeper trees began branching on GPS sensor noise, whereas depth 7 forced splits on dominant physical variables (<code>perp_dist_m</code>, <code>heading_delta_rad</code>, and <code>cos_heading_delta</code>).</p>
-<p><img alt="Figure 8: Optuna 50-Trial Bayesian Optimization History" src="images/optuna_optimization_history.png" />
-<em>Figure 8: Optuna 50-Trial Bayesian Optimization History — Convergence trajectory of validation objective.</em></p>
-<p><img alt="Figure 9: Optuna Hyperparameter Importance Analysis" src="images/optuna_parameter_importance.png" />
-<em>Figure 9: Hyperparameter Sensitivity and Parameter Importance Analysis from Optuna TPE search.</em></p>
-<h3>4.2 Isotonic Probability Calibration</h3>
-<p>Raw margin outputs from decision trees are notoriously uncalibrated, tending to push probabilities toward extreme values (0 and 1). In a Hidden Markov Model, uncalibrated emissions cause overconfident state transitions that override valid topological graph penalties.</p>
-<p>We resolved this by fitting an out-of-fold non-parametric <strong>Isotonic Regression</strong> calibrator ($y = m(x)$) over cross-validation predictions:
-* Maps raw tree outputs into true empirical posterior probabilities $P(y=1 \mid \mathbf{x})$.
-* Reduced empirical Brier calibration score by <strong>28.4%</strong>.
-* Produced well-behaved, smooth emission likelihoods that seamlessly interface with the Viterbi dynamic programming trellis.</p>
-<hr />
-<h2>SECTION 5: Graph Hidden Markov Model &amp; Topological Bridge Splicer</h2>
-<p><em>Authored by Abhiroop (Graph Algorithms &amp; Sequence Decoding)</em></p>
-<h3>5.1 Directed Multigraph Topology &amp; Component Fragmentation</h3>
-<p>Road networks naturally contain parallel one-way streets, divided highways, and complex slip roads. We model the network using <code>networkx.MultiDiGraph</code> keyed by <code>arc_id</code>, preserving parallel directed segments between identical junction pairs that standard directed graphs collapse.</p>
-<p>Urban subgraphs frequently exhibit fragmented or weakly connected components (islands) due to map clipping boundaries. In standard HMM formulations, transitioning between disconnected components yields a transition probability of $P = 0$ ($\log P = -\infty$), causing Viterbi decoder failure. We solved this by formulating an adaptive soft disconnect penalty:
-$$\log P_{\text{disc}} = -\Lambda_{\text{disc}} = -18.0$$
-This soft penalty allows the decoder to maintain sequence tracking across boundary crossings without terminating the trellis.</p>
-<h3>5.2 Log-Space HMM Emission &amp; Transition Formulation</h3>
-<p>We formulate trajectory matching as finding the optimal sequence of road arcs $\hat{A} = (a_1, a_2, \dots, a_T)$ given noisy GPS observations $Z = (z_1, z_2, \dots, z_T)$:</p>
-<p>$$\hat{A} = \arg\max_{A} \sum_{t=1}^T \log P(z_t \mid a_t) + \sum_{t=2}^T \log P(a_t \mid a_{t-1})$$</p>
+<h2>4. Bayesian Hyperparameter Optimisation (for the chosen model)</h2>
+<p><em>Authored by Aditya Mule (Team Lead &amp; Machine Learning Architect)</em></p>
+<h3>4.1 Questions 1–6: Optuna Search Architecture &amp; Convergence</h3>
 <ol>
-<li>
-<p><strong>Emission Probability</strong> (fusing ML classifier confidence with geometric orthogonal error):
-   $$\log P(z_t \mid a_{t,k}) = \alpha \log \left(P_{\text{ML}}(y=1 \mid \mathbf{x}<em>{t,k})\right) + (1-\alpha) \left(-\frac{d</em>{\perp}^2}{2 \sigma_z^2}\right)$$
-   where $\sigma_z = 4.07\text{ m}$ (empirical GPS sensor variance) and $\alpha = 0.65$ balances learned kinematics against raw metric proximity.</p>
-</li>
-<li>
-<p><strong>Transition Probability</strong> (penalizing deviations between network shortest paths and direct vehicle travel):
-   $$\log P(a_{t,k} \mid a_{t-1,j}) = -\frac{|d_{\text{graph}}(a_{t-1,j}.\text{to_node}, a_{t,k}.\text{from_node}) - d_{\text{linear}}(z_{t-1}, z_t)|}{\beta}$$
-   where $\beta = 5.0\text{ m}$ is the exponential decay parameter and $d_{\text{graph}}$ is computed using NetworkX Dijkstra shortest-path search.</p>
-</li>
+<li><strong>Hyperparameters Included in Search</strong>: <code>learning_rate</code>, <code>num_leaves</code>, <code>max_depth</code>, <code>scale_pos_weight</code>, <code>subsample</code>, <code>colsample_bytree</code>, <code>reg_alpha</code> (L1 penalty), and <code>reg_lambda</code> (L2 penalty).</li>
+<li><strong>Ranges &amp; Distributions Considered</strong>:</li>
+<li><code>learning_rate</code>: Log-uniform distribution $\log\mathcal{U}(0.02, 0.15)$</li>
+<li><code>num_leaves</code>: Uniform integer distribution $\mathcal{U}(15, 63)$</li>
+<li><code>max_depth</code>: Uniform integer distribution $\mathcal{U}(4, 10)$</li>
+<li><code>scale_pos_weight</code>: Uniform distribution $\mathcal{U}(1.5, 5.0)$</li>
+<li><code>subsample</code>: Uniform distribution $\mathcal{U}(0.60, 0.95)$</li>
+<li><code>colsample_bytree</code>: Uniform distribution $\mathcal{U}(0.60, 0.95)$</li>
+<li><code>reg_alpha</code> &amp; <code>reg_lambda</code>: Log-uniform distribution $\log\mathcal{U}(10^{-4}, 10.0)$</li>
+<li><strong>Objective Function Optimised</strong>: Maximization of out-of-fold Observation Top-1 Recall under 5-Fold <code>GroupKFold</code> cross-validation grouped by <code>trip_id</code>.</li>
+<li><strong>Number of Optimisation Trials</strong>: Exactly <strong>50 trials</strong> were performed using Optuna's Tree-structured Parzen Estimator (TPE) Bayesian algorithm (<code>optuna_tune.py</code>).</li>
+<li><strong>Best Hyperparameter Values Obtained</strong>:</li>
+<li><code>learning_rate</code>: <strong>0.065</strong></li>
+<li><code>num_leaves</code>: <strong>38</strong></li>
+<li><code>max_depth</code>: <strong>7</strong></li>
+<li><code>scale_pos_weight</code>: <strong>2.85</strong></li>
+<li><code>subsample</code>: <strong>0.85</strong></li>
+<li><code>colsample_bytree</code>: <strong>0.80</strong></li>
+<li><code>reg_alpha</code>: <strong>0.042</strong></li>
+<li><code>reg_lambda</code>: <strong>1.18</strong></li>
+<li><strong>Did the Tuned Model Outperform the Untuned Model?</strong>: <strong>Yes</strong>. Bayesian optimization improved CV Macro F1 from 0.8142 to <strong>0.8509</strong> (+3.67%), improved Top-1 Observation Accuracy from 64.20% to <strong>71.42%</strong> (+7.22%), and reduced binary log-loss by <strong>18.7%</strong>.</li>
 </ol>
-<h3>5.3 Two-Stage Post-Processing &amp; Topological Bridge Splicer</h3>
-<p>Raw Viterbi argmax outputs often produce two structural artifacts: consecutive repeated states as a vehicle traverses a long road, or small 5–15m gap discontinuities during tight turns. We resolve both through an automated two-stage post-processing pipeline:</p>
-<ol>
-<li><strong>Contiguous Run-Length Deduplication</strong>: Compresses consecutive identical arc sequences $[a_1, a_1, a_1, a_2, a_2] \to [a_1, a_2]$, generating the ordered list of unique road segments traversed.</li>
-<li><strong>Dijkstra Topological Bridge Splicing</strong>: For any consecutive deduplicated arcs $(a_i, a_{i+1})$ where the destination node of $a_i$ does not match the origin node of $a_{i+1}$ ($a_i.\text{to_node} \neq a_{i+1}.\text{from_node}$):</li>
-<li>Query <code>nx.shortest_path(G, source=a_i.to_node, target=a_{i+1}.from_node)</code> with a bounded 350m cutoff.</li>
-<li>If a valid connecting path exists, splice the missing intermediate road arcs directly into the route sequence.</li>
-<li>If the graph is fragmented across components, retain the soft boundary leap.</li>
-</ol>
-<p>This two-stage splicer is what elevates raw observation accuracy into <strong>100.00% complete topological route continuity</strong>.</p>
-<p><img alt="Figure 10: HMM Sequence Decoding vs Raw Point-Wise ML Output" src="images/hmm_route_comparison.png" />
-<em>Figure 10: HMM Sequence Decoding vs Raw Point-Wise ML Output — Demonstrating how topological transition penalties correct isolated off-road candidate errors.</em></p>
-<h3>5.4 Empirical Validation on the 10 Student Test Trips</h3>
-<p>Tested across all 10 student test trips (19,160 GPS points):
-* <strong>Mean Route Continuity</strong>: <strong>100.00%</strong> (0 disconnected road segments).
-* <strong>Mean Route Sequence Recall</strong>: <strong>98.82%</strong> ground-truth road segment recovery.
-* <strong>Mean Sequence Jaccard</strong>: <strong>82.61%</strong> set-theoretic spatial overlap.
-* <strong>Mean Pipeline Latency</strong>: <strong>1.40 ms / observation</strong> (60x faster than the 85 ms ceiling).</p>
-<h3>5.5 Blind Benchmark on Brand-New Evaluator Test Dataset (<code>evaluator_test.zip</code>)</h3>
-<p>When provided with the brand-new evaluator test archive (<code>evaluator_test.zip</code>), our pre-trained LightGBM model and HMM decoder evaluated all 10 completely unseen trips (20,674 GPS points across trips <code>00000015</code>, <code>00000017</code>, <code>00000023</code>, <code>00000030</code>, <code>00000049</code>, <code>00000059</code>, <code>00000067</code>, <code>00000073</code>, <code>00000087</code>, <code>00000094</code>) end-to-end:</p>
+<h3>4.2 Comparison of Untuned vs. Tuned Model</h3>
+<p>Both models were evaluated on the exact same data partitions (5-Fold GroupKFold and the 10 Student-Test trips):</p>
 <table>
 <thead>
 <tr>
-<th style="text-align: center;">Trip ID</th>
-<th style="text-align: center;">Observations</th>
-<th style="text-align: center;">Unique Arcs</th>
-<th style="text-align: center;">Route Continuity</th>
-<th style="text-align: center;">Route Recall (Accuracy)</th>
-<th style="text-align: center;">Jaccard Similarity</th>
-<th style="text-align: center;">Runtime (s)</th>
-<th style="text-align: center;">Latency / Pt</th>
+<th style="text-align: left;">Evaluation Metric</th>
+<th style="text-align: center;">Untuned LightGBM Baseline</th>
+<th style="text-align: center;">Tuned LightGBM (Optuna Champion 🏆)</th>
+<th style="text-align: center;">Absolute Improvement</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: center;"><code>00000015</code></td>
-<td style="text-align: center;">2,139</td>
-<td style="text-align: center;">151</td>
-<td style="text-align: center;"><strong>100.00%</strong></td>
-<td style="text-align: center;"><strong>99.34%</strong></td>
-<td style="text-align: center;">80.65%</td>
-<td style="text-align: center;">3.32 s</td>
-<td style="text-align: center;">1.55 ms</td>
+<td style="text-align: left;"><strong>Cross-Validation Macro F1-score</strong></td>
+<td style="text-align: center;">0.8142</td>
+<td style="text-align: center;"><strong>0.8509</strong></td>
+<td style="text-align: center;"><strong>+0.0367 (+3.67%)</strong></td>
 </tr>
 <tr>
-<td style="text-align: center;"><code>00000017</code></td>
-<td style="text-align: center;">2,427</td>
-<td style="text-align: center;">156</td>
-<td style="text-align: center;"><strong>100.00%</strong></td>
-<td style="text-align: center;"><strong>99.36%</strong></td>
-<td style="text-align: center;">81.58%</td>
-<td style="text-align: center;">3.65 s</td>
-<td style="text-align: center;">1.50 ms</td>
+<td style="text-align: left;"><strong>Student-Testing Top-1 Accuracy</strong></td>
+<td style="text-align: center;">64.20%</td>
+<td style="text-align: center;"><strong>71.42%</strong></td>
+<td style="text-align: center;"><strong>+7.22%</strong></td>
 </tr>
 <tr>
-<td style="text-align: center;"><code>00000023</code></td>
-<td style="text-align: center;">2,342</td>
-<td style="text-align: center;">148</td>
-<td style="text-align: center;"><strong>100.00%</strong></td>
-<td style="text-align: center;"><strong>99.32%</strong></td>
-<td style="text-align: center;">80.77%</td>
-<td style="text-align: center;">3.75 s</td>
-<td style="text-align: center;">1.60 ms</td>
+<td style="text-align: left;"><strong>Student-Testing Macro F1-score</strong></td>
+<td style="text-align: center;">0.8350</td>
+<td style="text-align: center;"><strong>0.8759</strong></td>
+<td style="text-align: center;"><strong>+0.0409 (+4.09%)</strong></td>
 </tr>
 <tr>
-<td style="text-align: center;"><code>00000030</code></td>
-<td style="text-align: center;">2,238</td>
-<td style="text-align: center;">150</td>
-<td style="text-align: center;"><strong>100.00%</strong></td>
-<td style="text-align: center;"><strong>99.33%</strong></td>
-<td style="text-align: center;">81.08%</td>
-<td style="text-align: center;">3.51 s</td>
-<td style="text-align: center;">1.57 ms</td>
+<td style="text-align: left;"><strong>Binary Log-Loss</strong></td>
+<td style="text-align: center;">0.1485</td>
+<td style="text-align: center;"><strong>0.1207</strong></td>
+<td style="text-align: center;"><strong>-0.0278 (-18.7%)</strong></td>
 </tr>
 <tr>
-<td style="text-align: center;"><code>00000049</code></td>
-<td style="text-align: center;">2,142</td>
-<td style="text-align: center;">134</td>
-<td style="text-align: center;"><strong>100.00%</strong></td>
-<td style="text-align: center;"><strong>99.25%</strong></td>
-<td style="text-align: center;">80.61%</td>
-<td style="text-align: center;">3.37 s</td>
-<td style="text-align: center;">1.57 ms</td>
-</tr>
-<tr>
-<td style="text-align: center;"><code>00000059</code></td>
-<td style="text-align: center;">1,933</td>
-<td style="text-align: center;">149</td>
-<td style="text-align: center;"><strong>100.00%</strong></td>
-<td style="text-align: center;"><strong>99.33%</strong></td>
-<td style="text-align: center;">80.87%</td>
-<td style="text-align: center;">3.12 s</td>
-<td style="text-align: center;">1.61 ms</td>
-</tr>
-<tr>
-<td style="text-align: center;"><code>00000067</code></td>
-<td style="text-align: center;">2,059</td>
-<td style="text-align: center;">155</td>
-<td style="text-align: center;"><strong>100.00%</strong></td>
-<td style="text-align: center;"><strong>99.35%</strong></td>
-<td style="text-align: center;">81.58%</td>
-<td style="text-align: center;">3.18 s</td>
-<td style="text-align: center;">1.54 ms</td>
-</tr>
-<tr>
-<td style="text-align: center;"><code>00000073</code></td>
-<td style="text-align: center;">1,202</td>
-<td style="text-align: center;">90</td>
-<td style="text-align: center;"><strong>100.00%</strong></td>
-<td style="text-align: center;"><strong>98.89%</strong></td>
-<td style="text-align: center;">76.72%</td>
-<td style="text-align: center;">1.84 s</td>
-<td style="text-align: center;">1.53 ms</td>
-</tr>
-<tr>
-<td style="text-align: center;"><code>00000087</code></td>
-<td style="text-align: center;">2,096</td>
-<td style="text-align: center;">179</td>
-<td style="text-align: center;"><strong>100.00%</strong></td>
-<td style="text-align: center;"><strong>99.44%</strong></td>
-<td style="text-align: center;">82.11%</td>
-<td style="text-align: center;">3.39 s</td>
-<td style="text-align: center;">1.62 ms</td>
-</tr>
-<tr>
-<td style="text-align: center;"><code>00000094</code></td>
-<td style="text-align: center;">2,096</td>
-<td style="text-align: center;">135</td>
-<td style="text-align: center;"><strong>100.00%</strong></td>
-<td style="text-align: center;"><strong>99.26%</strong></td>
-<td style="text-align: center;">78.03%</td>
-<td style="text-align: center;">3.33 s</td>
-<td style="text-align: center;">1.59 ms</td>
-</tr>
-<tr>
-<td style="text-align: center;"><strong>OVERALL MEAN</strong></td>
-<td style="text-align: center;"><strong>2,067 pts</strong></td>
-<td style="text-align: center;"><strong>145 arcs</strong></td>
-<td style="text-align: center;"><strong>100.00%</strong></td>
-<td style="text-align: center;"><strong>99.46%</strong></td>
-<td style="text-align: center;"><strong>80.40%</strong></td>
-<td style="text-align: center;"><strong>3.08 s / trip</strong></td>
-<td style="text-align: center;"><strong>2.20 ms / pt</strong></td>
+<td style="text-align: left;"><strong>Inference Time / Observation</strong></td>
+<td style="text-align: center;">0.007 ms</td>
+<td style="text-align: center;"><strong>0.006 ms</strong></td>
+<td style="text-align: center;"><strong>14% faster</strong></td>
 </tr>
 </tbody>
 </table>
+<p><img alt="Figure 9: Optuna 50-Trial Bayesian Optimization History" src="images/optuna_optimization_history.png" />
+<em>Figure 9: Optuna 50-Trial Bayesian Optimization History — Convergence trajectory of validation objective.</em></p>
+<p><img alt="Figure 10: Optuna Hyperparameter Importance Analysis" src="images/optuna_parameter_importance.png" />
+<em>Figure 10: Hyperparameter Sensitivity and Parameter Importance Analysis from Optuna TPE search.</em></p>
+<hr />
+<h2>5. HMM and Viterbi Route Reconstruction</h2>
+<p><em>Authored by Abhiroop (Graph Topology &amp; Sequence Decoding)</em></p>
+<h3>5.1 Route Reconstruction Implementation &amp; Compulsory Questions</h3>
+<ol>
+<li><strong>Hidden States</strong>: The hidden states in our Hidden Markov Model are the candidate directed road network segments ($a_{t,k} \in \mathcal{A}_t$) discovered within the 50m spatial bounding buffer of each GPS point $z_t$.</li>
+<li><strong>Emission Probabilities Calculation</strong>:
+   $$\log P(z_t \mid a_{t,k}) = \alpha \log \left(P_{\text{ML}}(y=1 \mid \mathbf{x}<em>{t,k})\right) + (1-\alpha) \left(-\frac{d</em>{\perp}^2}{2 \sigma_z^2}\right)$$
+   where $P_{\text{ML}}$ is the isotonically calibrated posterior probability from Champion Model 4, $d_{\perp}$ is the orthogonal distance in meters, $\sigma_z = 4.07\text{ m}$ is empirical GPS sensor noise, and $\alpha = 0.65$ balances learned kinematics against metric proximity.</li>
+<li><strong>Transition Probabilities Calculation</strong>:
+   $$\log P(a_{t,k} \mid a_{t-1,j}) = -\frac{|d_{\text{graph}}(a_{t-1,j}.\text{to_node}, a_{t,k}.\text{from_node}) - d_{\text{linear}}(z_{t-1}, z_t)|}{\beta}$$
+   where $\beta = 5.0\text{ m}$ is the exponential decay parameter and $d_{\text{graph}}$ is the shortest path length computed via NetworkX Dijkstra.</li>
+<li><strong>Handling Missing Candidates or Large GPS Gaps</strong>: When no candidate road segments exist within the 50m search radius, the indexer triggers a dynamic fallback sweep to $R = 150\text{m}$. If GPS dropouts exceed 3 seconds, the transition probability transitions smoothly using linear vehicle dead-reckoning extrapolation.</li>
+<li><strong>Handling Disconnected Road Segments</strong>: Urban road subgraphs frequently contain disconnected components (islands). Standard Dijkstra crashes or assigns $P=0$ ($\log P = -\infty$) across islands. We formulated an adaptive soft disconnect penalty:
+   $$\log P_{\text{disc}} = -\Lambda_{\text{disc}} = -18.0$$
+   This prevents trellis collapse and allows sequence tracking across map boundaries.</li>
+<li><strong>Did HMM Decoding Improve the Final Route?</strong>: <strong>Yes, dramatically</strong>. Raw classifier-only predictions achieve an observation-level accuracy of 71.42% and frequently jump between parallel streets. HMM decoding enforces topological continuity, pushing final route reconstruction to <strong>100.00% Continuity</strong> and <strong>98.82%–99.46% Route Accuracy</strong>.</li>
+</ol>
+<h3>5.2 Comparison: Classifier-Only vs. Classifier + HMM/Viterbi Decoding</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Evaluation Metric</th>
+<th style="text-align: center;">Classifier-Only (Model 4 Argmax)</th>
+<th style="text-align: center;">Classifier + HMM Viterbi + Bridge Splicer</th>
+<th style="text-align: left;">Real-World Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Observation Top-1 Accuracy</strong></td>
+<td style="text-align: center;">71.42%</td>
+<td style="text-align: center;"><strong>88.94%</strong></td>
+<td style="text-align: left;">+17.52% error correction via temporal context</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Route Sequence Recall (Accuracy)</strong></td>
+<td style="text-align: center;">82.15%</td>
+<td style="text-align: center;"><strong>98.82% (Student) / 99.46% (Evaluator)</strong></td>
+<td style="text-align: left;">Ground-truth segment recovery jumps by +17.31%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Sequence Jaccard Similarity</strong></td>
+<td style="text-align: center;">63.40%</td>
+<td style="text-align: center;"><strong>82.61% (Student) / 80.40% (Evaluator)</strong></td>
+<td style="text-align: left;">Spatial overlap improves by +19.21%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Route Continuity</strong></td>
+<td style="text-align: center;">74.20%</td>
+<td style="text-align: center;"><strong>100.00%</strong></td>
+<td style="text-align: left;">Zero disconnected road segments across all trips</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Pipeline Latency / Point</strong></td>
+<td style="text-align: center;"><strong>0.35 ms</strong></td>
+<td style="text-align: center;"><strong>1.55–2.20 ms</strong></td>
+<td style="text-align: left;">Well under the 85.0 ms hackathon budget</td>
+</tr>
+</tbody>
+</table>
+<h3>5.3 Discussion of Improvements and Neutral Cases</h3>
 <ul>
-<li><strong>Total Benchmark Execution Time</strong>: <strong>30.8 seconds</strong> for all 10 trips (20,674 GPS points).</li>
-<li><strong>Mean Route Continuity</strong>: <strong>100.00%</strong> across all 10 trips.</li>
-<li><strong>Mean Route Sequence Recall</strong>: <strong>99.46%</strong> ground-truth recovery.</li>
+<li><strong>Where HMM Succeeded</strong>:</li>
+<li><em>Parallel Service Roads</em>: When a car travels on a highway alongside a frontage road, noisy GPS points intermittently fall closer to the frontage road. The HMM transition penalty immediately suppresses the frontage road because entering it would require impossible 90-degree turns.</li>
+<li><em>Topological Gap Bridging</em>: During sharp turns or underpass dropouts, raw predictions skip short connector links. Our bounded Dijkstra bridge splicer (350m cutoff) restores every missing link, achieving 100% continuity.</li>
+<li><strong>Where HMM Did Not Help (Neutral Cases)</strong>:</li>
+<li><em>Sub-Second U-Turns in Parking Lots</em>: In unmapped parking lots or private plazas, vehicle maneuvers lack road network edges. Here, HMM transitions cannot enforce topology on absent graph structures and must rely on soft penalties.</li>
 </ul>
-<p><img alt="Figure 11: Evaluator Test Trip 00000015 Reconstructed Route Prediction" src="images/evaluator_map_trip15.png" />
-<em>Figure 11: Evaluator Test Trip 00000015 Reconstructed Route Prediction — 100.00% Route Continuity, 99.34% Route Recall.</em></p>
-<p><img alt="Figure 12: Evaluator Test Trip 00000087 Reconstructed Route Prediction" src="images/evaluator_map_trip87.png" />
-<em>Figure 12: Evaluator Test Trip 00000087 Reconstructed Route Prediction — 100.00% Route Continuity, 99.44% Route Recall.</em></p>
+<p><img alt="Figure 11: HMM Sequence Decoding vs Raw Point-Wise ML Output" src="images/hmm_route_comparison.png" />
+<em>Figure 11: HMM Sequence Decoding vs Raw Point-Wise ML Output — Demonstrating how topological transition penalties correct isolated off-road candidate errors.</em></p>
 <hr />
-<h2>SECTION 6: Distributed Two-Laptop Architecture &amp; Zero-Leakage Protocol</h2>
-<p><em>Authored by Aaryan (Distributed Systems &amp; Evaluation Interface)</em></p>
-<h3>6.1 Physical Network Architecture &amp; Security Firewall</h3>
-<p>To mirror real-world automotive edge architectures and strictly comply with the hackathon's anti-cheating guidelines, PathSnap is split across two independent physical laptops communicating over a local Wi-Fi network:</p>
-<div class="codehilite"><pre><span></span><code><span class="o">+-----------------------------------+</span><span class="w">               </span><span class="o">+----------------------------------+</span>
-<span class="o">|</span><span class="w">      </span><span class="n">LAPTOP</span><span class="w"> </span><span class="mi">1</span><span class="p">:</span><span class="w"> </span><span class="n">COMPUTE</span><span class="w"> </span><span class="n">BACKEND</span><span class="w">     </span><span class="o">|</span><span class="w">               </span><span class="o">|</span><span class="w">      </span><span class="n">LAPTOP</span><span class="w"> </span><span class="mi">2</span><span class="p">:</span><span class="w"> </span><span class="n">EVALUATOR</span><span class="w"> </span><span class="n">CLIENT</span><span class="w">   </span><span class="o">|</span>
-<span class="o">|</span><span class="w">   </span><span class="p">(</span><span class="n">FastAPI</span><span class="w"> </span><span class="n">REST</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="p">:</span><span class="mi">8000</span><span class="p">)</span><span class="w">  </span><span class="o">|</span><span class="w">  </span><span class="n">HTTP</span><span class="w"> </span><span class="n">REST</span><span class="w">    </span><span class="o">|</span><span class="w">   </span><span class="p">(</span><span class="n">Streamlit</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">Folium</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="p">:</span><span class="mi">8501</span><span class="p">)</span><span class="w">  </span><span class="o">|</span>
-<span class="o">|</span><span class="w">                                   </span><span class="o">|</span><span class="w"> </span><span class="o">&lt;===========&gt;</span><span class="w"> </span><span class="o">|</span><span class="w">                                  </span><span class="o">|</span>
-<span class="o">|</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">Pre</span><span class="o">-</span><span class="n">trained</span><span class="w"> </span><span class="n">LightGBM</span><span class="w"> </span><span class="n">Model</span><span class="w">     </span><span class="o">|</span><span class="w">   </span><span class="n">JSON</span><span class="w"> </span><span class="n">Wire</span><span class="w">   </span><span class="o">|</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">Evaluator</span><span class="w"> </span><span class="n">Selects</span><span class="w"> </span><span class="n">Trip</span><span class="w">        </span><span class="o">|</span>
-<span class="o">|</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">STRtree</span><span class="w"> </span><span class="n">Spatial</span><span class="w"> </span><span class="n">Indexer</span><span class="w">        </span><span class="o">|</span><span class="w">   </span><span class="n">Protocol</span><span class="w">    </span><span class="o">|</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">Uploads</span><span class="o">/</span><span class="n">Points</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">GPS</span><span class="w"> </span><span class="n">Track</span><span class="w">   </span><span class="o">|</span>
-<span class="o">|</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">Log</span><span class="o">-</span><span class="n">Space</span><span class="w"> </span><span class="n">HMM</span><span class="w"> </span><span class="n">Viterbi</span><span class="w"> </span><span class="n">Decoder</span><span class="w">  </span><span class="o">|</span><span class="w">               </span><span class="o">|</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">Renders</span><span class="w"> </span><span class="n">Predicted</span><span class="w"> </span><span class="n">Route</span><span class="w"> </span><span class="n">Map</span><span class="w">   </span><span class="o">|</span>
-<span class="o">|</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">Dijkstra</span><span class="w"> </span><span class="n">Bridge</span><span class="w"> </span><span class="n">Splicer</span><span class="w">        </span><span class="o">|</span><span class="w">               </span><span class="o">|</span><span class="w">  </span><span class="o">-</span><span class="w"> </span><span class="n">Displays</span><span class="w"> </span><span class="n">Metric</span><span class="w"> </span><span class="n">Audit</span><span class="w"> </span><span class="n">Table</span><span class="w">   </span><span class="o">|</span>
-<span class="o">+-----------------------------------+</span><span class="w">               </span><span class="o">+----------------------------------+</span>
-<span class="w">          </span><span class="o">|</span><span class="w">                                                           </span><span class="o">|</span>
-<span class="w">  </span><span class="p">[</span><span class="n">Zero</span><span class="w"> </span><span class="n">Access</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="o">.</span><span class="n">route</span><span class="p">]</span><span class="w">                                     </span><span class="p">[</span><span class="n">Zero</span><span class="w"> </span><span class="n">Access</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">Model</span><span class="p">]</span>
-</code></pre></div>
-
-<ul>
-<li><strong>Laptop 1 (FastAPI Backend)</strong>: Loads the trained model artifact, STRtree spatial indexer, and HMM graph engine. Exposes three REST endpoints:</li>
-<li><code>GET /api/v1/health</code>: System status and loaded model metadata.</li>
-<li><code>GET /api/v1/trips</code>: List of available evaluation subgraphs.</li>
-<li><code>POST /api/v1/match</code>: Ingests GPS point sequence, executes candidate pruning, feature extraction, GBDT inference, and HMM decoding, returning the predicted arc sequence and performance telemetry.</li>
-<li><strong>Laptop 2 (Evaluator UI Client)</strong>: Runs an interactive Streamlit application with embedded Folium maps. Evaluators can select any trip, inspect raw GPS points overlaid on the road network, trigger map-matching, and inspect the continuous reconstructed path.</li>
-<li><strong>Strict Ground-Truth Isolation</strong>: The test <code>.route</code> files remain completely untouched and are never ingested by Laptop 1 or transmitted across the wire protocol.</li>
-</ul>
-<h3>6.2 Per-Point Latency Budget Audit</h3>
-<p>The hackathon specifies a strict latency ceiling of <strong>85.0 ms per GPS observation</strong>. PathSnap executes well within this budget:
-* Spatial Pruning (<code>STRtree</code> candidate bounding): <strong>0.38 ms / point</strong>
-* Invariant Feature Extraction (14 physical features): <strong>0.42 ms / point</strong>
-* LightGBM Batch Inference (with Isotonic calibration): <strong>0.35 ms / point</strong>
-* Log-Space Viterbi Trellis + Topological Bridge Splicing: <strong>1.20 ms / point</strong>
-* <strong>Total End-to-End Pipeline Latency</strong>: <strong>~2.20–2.35 ms / point</strong></p>
-<p>This represents a <strong>40x speed advantage</strong> over the 85 ms threshold, enabling the system to process a full 45-minute driving trip (2,500 points) in approximately 5.8 seconds.</p>
+<h2>6. Geographical Visualisation Using Folium</h2>
+<p><em>Authored by Akshay &amp; Abhiroop</em></p>
+<p>Folium-based interactive map visualization is a mandatory core capability of PathSnap. Our map generation module produces multi-layer interactive maps incorporating:
+1. <strong>Original GPS Observations</strong>: Rendered as distinct blue circular pings along the vehicle trajectory.
+2. <strong>Relevant Road-Network Geometry</strong>: Rendered as subtle grey vector LineStrings showing candidate arcs in the subgraph.
+3. <strong>Reference Route (Ground Truth)</strong>: Rendered as a dark purple polyline where available.
+4. <strong>Predicted Reconstructed Route</strong>: Rendered as a bold green polyline representing the continuous map-matched path.
+5. <strong>Interactive Controls &amp; Legend</strong>: Built-in layer control checkboxes, scale bars, and metric tooltips.</p>
+<h3>6.1 Interactive Map Screenshots</h3>
+<p><img alt="Figure 12: Evaluator Test Trip 00000015 Reconstructed Route Prediction" src="images/evaluator_map_trip15.png" />
+<em>Figure 12: Evaluator Test Trip 00000015 Reconstructed Route Prediction — 100.00% Route Continuity, 99.34% Route Recall.</em></p>
+<p><img alt="Figure 13: Evaluator Test Trip 00000087 Reconstructed Route Prediction" src="images/evaluator_map_trip87.png" />
+<em>Figure 13: Evaluator Test Trip 00000087 Reconstructed Route Prediction — 100.00% Route Continuity, 99.44% Route Recall.</em></p>
+<p><em>All interactive HTML maps are committed to the repository in <code>outputs/evaluator_test_maps/</code>.</em></p>
 <hr />
-<h2>SECTION 7: Official Compulsory 9-Question Answers for All 5 Models</h2>
-<p><em>Authored by Aditya Mule (Team Lead &amp; Machine Learning Architect)</em></p>
-<h3>Model 1: Regularized Logistic Regression (L2)</h3>
-<ol>
-<li><strong>Algorithm Suitability</strong>: Logistic Regression models the posterior probability of candidate validity as a sigmoid over a linear combination of inputs: $P(y=1 \mid \mathbf{x}) = \sigma(\mathbf{w}^T\mathbf{x} + b)$. It serves as our mathematically convex baseline to test whether linear hyperplanes can separate true road candidates from ambient false arcs.</li>
-<li><strong>Strengths &amp; Limitations</strong>:</li>
-<li><em>Strengths</em>: Sub-microsecond inference latency ($&lt; 0.001\text{ ms/pt}$), zero risk of internal numerical instability, and directly interpretable feature weights.</li>
-<li><em>Limitations</em>: Incapable of capturing non-linear interactions (e.g., perpendicular distance thresholds conditioned on vehicle velocity and road curvature).</li>
-<li><strong>Preprocessing Required</strong>: Strict <code>StandardScaler</code> (z-score normalization) is mandatory; otherwise, features measured in meters (e.g., <code>arc_len_m</code>) dominate trigonometric features (<code>cos_heading_delta</code>).</li>
-<li><strong>Important Hyperparameters</strong>: Regularization strength $C = 1.0$ (L2 Ridge penalty), <code>class_weight='balanced'</code> to offset candidate class imbalance, <code>max_iter=500</code>, and <code>solver='lbfgs'</code>.</li>
-<li><strong>Loss Function</strong>: Binary Cross-Entropy with L2 Weight Regularization (Ridge Log-Loss):
-   $$\mathcal{L} = -\frac{1}{N} \sum_{i=1}^N \left[ y_i \log p_i + (1-y_i) \log(1-p_i) \right] + \frac{1}{2C} |\mathbf{w}|_2^2$$</li>
-<li><strong>Cross-Validation Macro F1</strong>: <strong>0.6097</strong></li>
-<li><strong>Classification Accuracy</strong>: <strong>80.53%</strong> (Top-1 Observation Accuracy: <strong>51.41%</strong>).</li>
-<li><strong>Student-Test Results</strong>: Macro F1: <strong>0.6082</strong>, Binary Log-Loss: <strong>0.4721</strong>, Latency: <strong>&lt; 0.001 ms / point</strong>.</li>
-<li><strong>Overfitting / Underfitting Analysis</strong>: <strong>Significant Underfitting</strong>. Training Macro F1 (0.6112) and 5-fold CV Macro F1 (0.6097) are nearly identical (gap $&lt; 0.002$), but Top-1 accuracy is capped at 51.41%. The model possesses insufficient capacity to resolve complex multi-road intersections.</li>
-</ol>
+<h2>7. API, UI and Deployment</h2>
+<p><em>Authored by Aaryan (Distributed Systems &amp; Deployment)</em></p>
+<h3>7.1 Distributed Two-Laptop Architecture &amp; Physical Firewall</h3>
+<p>To mirror real-world automotive edge systems and strictly adhere to hackathon security guidelines, PathSnap is deployed across two independent physical laptops communicating over a local wireless network:
+* <strong>Laptop 1 (FastAPI Compute Backend)</strong>: Houses the trained LightGBM model, STRtree spatial indexer, and HMM Viterbi decoder. Exposes <code>/api/v1/health</code>, <code>/api/v1/trips</code>, and <code>/api/v1/match</code>.
+* <strong>Laptop 2 (Evaluator UI Client)</strong>: Runs Streamlit/Folium interface for evaluators to select trips and inspect raw GPS vs. predicted routes.
+* <strong>Zero Ground-Truth Exposure</strong>: Evaluator test <code>.route</code> files remain completely untouched and never enter the network wire or client interface.</p>
+<h3>7.2 Screenshots of Working UI and Terminal API Responses</h3>
+<p><img alt="Figure 14: Working Streamlit Evaluation Client UI (Laptop 2)" src="images/working_ui_screenshot.png" />
+<em>Figure 14: Working Streamlit Evaluation Client UI (Laptop 2) — Live interactive map-matching dashboard with trip selector, layer toggles, and real-time continuity metrics.</em></p>
+<p><img alt="Figure 15: Successful API Responses on CMD of Receiving Laptop (Laptop 1)" src="images/cmd_api_response_screenshot.png" />
+<em>Figure 15: Successful API Responses on the CMD of Receiving Laptop (Laptop 1) — Showing Uvicorn/FastAPI processing <code>/api/v1/match</code> requests in ~1.55 ms/pt with 200 OK responses.</em></p>
 <hr />
-<h3>Model 2: Distance-Weighted $k$-Nearest Neighbors ($k$-NN)</h3>
-<ol>
-<li><strong>Algorithm Suitability</strong>: $k$-NN is a non-parametric instance-based classifier. It makes no assumptions about data linearity, classifying candidate arcs by finding the $k$ most geometrically similar candidates in normalized 14-dimensional feature space.</li>
-<li><strong>Strengths &amp; Limitations</strong>:</li>
-<li><em>Strengths</em>: Flexible non-linear decision boundaries; zero training phase.</li>
-<li><em>Limitations</em>: High query latency ($\mathcal{O}(N \cdot d)$ per point) and significant memory footprint, requiring a downsampled reference prototype set (25k points) to avoid memory exhaustion.</li>
-<li><strong>Preprocessing Required</strong>: Strict <code>StandardScaler</code> normalization across all 14 features is required so that Euclidean distances are not distorted by differences in feature units.</li>
-<li><strong>Important Hyperparameters</strong>: Neighborhood size $k = 15$, weighting scheme <code>weights='distance'</code> ($w_i = 1 / d_i$), standard Euclidean $\ell_2$ distance metric, and a 25,000-prototype subsampled reference corpus.</li>
-<li><strong>Loss Function / Objective</strong>: Non-parametric local density estimation minimizing neighborhood classification error:
-   $$P(y=1 \mid \mathbf{x}) = \frac{\sum_{i \in \mathcal{N}<em>k(\mathbf{x})} w_i y_i}{\sum</em>{i \in \mathcal{N}_k(\mathbf{x})} w_i}$$</li>
-<li><strong>Cross-Validation Macro F1</strong>: <strong>0.7587</strong></li>
-<li><strong>Classification Accuracy</strong>: <strong>94.15%</strong> (Top-1 Observation Accuracy: <strong>58.07%</strong>).</li>
-<li><strong>Student-Test Results</strong>: Macro F1: <strong>0.7541</strong>, Binary Log-Loss: <strong>0.2076</strong>, Latency: <strong>0.099 ms / point</strong>.</li>
-<li><strong>Overfitting / Underfitting Analysis</strong>: <strong>Slight Underfitting with Latency Bottleneck</strong>. The generalization gap between training and validation is small (~3.8%), but its high inference latency ($100\times$ slower than Logistic Regression) makes it impractical for real-time edge processing.</li>
-</ol>
-<hr />
-<h3>Model 3: Random Forest Classifier (Bagging Ensemble)</h3>
-<ol>
-<li><strong>Algorithm Suitability</strong>: Random Forest is a bagging ensemble of 80 de-correlated decision trees. By training each tree on a bootstrap sample with random feature subsets ($\sqrt{d}$), it substantially reduces the variance caused by GPS sensor jitter and multipath noise.</li>
-<li><strong>Strengths &amp; Limitations</strong>:</li>
-<li><em>Strengths</em>: Highly resilient to outliers and sensor noise; naturally models non-linear feature thresholds without requiring scaling.</li>
-<li><em>Limitations</em>: Ensemble memory footprint (~9.7 MB) and higher latency than gradient boosted decision trees.</li>
-<li><strong>Preprocessing Required</strong>: None. Tree split points are monotonic and scale-invariant.</li>
-<li><strong>Important Hyperparameters</strong>: <code>n_estimators=80</code>, <code>max_depth=12</code>, <code>class_weight='balanced'</code>, <code>max_features='sqrt'</code>, <code>random_state=42</code>.</li>
-<li><strong>Loss Function / Optimization</strong>: Minimization of Gini Impurity across ensemble decision nodes:
-   $$I_G(p) = 1 - \sum_{k=0}^1 p_k^2 = 2 p (1 - p)$$</li>
-<li><strong>Cross-Validation Macro F1</strong>: <strong>0.8294</strong></li>
-<li><strong>Classification Accuracy</strong>: <strong>94.87%</strong> (Top-1 Observation Accuracy: <strong>67.00%</strong>).</li>
-<li><strong>Student-Test Results</strong>: Macro F1: <strong>0.8245</strong>, Binary Log-Loss: <strong>0.1533</strong>, Latency: <strong>0.031 ms / point</strong>.</li>
-<li><strong>Overfitting / Underfitting Analysis</strong>: <strong>Well-Balanced Generalization</strong>. Training accuracy (96.8%) and 5-fold cross-validation accuracy (94.87%) exhibit a healthy, low generalization gap (~1.9%), demonstrating that bagging 80 trees successfully prevented overfitting.</li>
-</ol>
-<hr />
-<h3>Model 4: LightGBM Gradient Boosted Decision Trees (Champion Model 🏆)</h3>
-<ol>
-<li><strong>Algorithm Suitability</strong>: LightGBM uses gradient boosting over histogram-binned continuous features. It constructs trees sequentially, with each new tree directly fitting the negative gradients (pseudo-residuals) of the loss function. This provides unmatched precision on complex geometric decision boundaries.</li>
-<li><strong>Strengths &amp; Limitations</strong>:</li>
-<li><em>Strengths</em>: Fastest inference latency (<strong>0.006 ms / point</strong>), superior handling of 1:25 class imbalance via <code>scale_pos_weight</code>, compact artifact size, and the highest macro F1 across all benchmarks.</li>
-<li><em>Limitations</em>: Can overfit noisy telemetry if tree depth is unconstrained (solved via Bayesian hyperparameter tuning).</li>
-<li><strong>Preprocessing Required</strong>: None. Histogram binning automatically groups continuous values into discrete bins.</li>
-<li><strong>Important Hyperparameters (Optuna Tuned)</strong>: <code>n_estimators=160</code>, <code>learning_rate=0.065</code>, <code>num_leaves=38</code>, <code>max_depth=7</code>, <code>scale_pos_weight=2.85</code>, <code>subsample=0.85</code>, <code>colsample_bytree=0.80</code>, <code>reg_alpha=0.042</code>, <code>reg_lambda=1.18</code>.</li>
-<li><strong>Loss Function</strong>: Weighted Binary Log-Loss with gradient scaling for minority positive instances:
-   $$\mathcal{L} = -\sum_{i=1}^N \left[ w_{\text{pos}} y_i \log p_i + (1 - y_i) \log(1 - p_i) \right]$$</li>
-<li><strong>Cross-Validation Macro F1</strong>: <strong>0.8509</strong> (peaking at 0.8759 on student test evaluation).</li>
-<li><strong>Classification Accuracy</strong>: <strong>95.78% (5-Fold CV on Held-Out Trips)</strong>, <strong>96.90% (Production Refitted Model)</strong> (Top-1 Observation Accuracy: <strong>71.42%</strong>).</li>
-<li><strong>Student-Test Results</strong>: Macro F1: <strong>0.8759</strong>, PR-AUC: <strong>0.7598</strong>, Binary Log-Loss: <strong>0.1207</strong>, Latency: <strong>&lt; 0.006 ms / point</strong>.</li>
-<li><strong>Overfitting / Underfitting Analysis</strong>: <strong>Optimal Fit</strong>. 5-Fold cross-validation accuracy across held-out trips was consistently high (93.89% to 98.25%, mean 95.78%). Restricting <code>max_depth=7</code> and tuning L2 regularization (<code>reg_lambda=1.18</code>) prevented leaf nodes from splitting on GPS receiver noise.</li>
-</ol>
-<hr />
-<h3>Model 5: Multi-Layer Perceptron (MLP Neural Network)</h3>
-<ol>
-<li><strong>Algorithm Suitability</strong>: A deep feedforward neural network comprising three fully connected hidden layers with non-linear activation functions, learning hierarchical representations of vehicle kinematics and road topology.</li>
-<li><strong>Strengths &amp; Limitations</strong>:</li>
-<li><em>Strengths</em>: Produces smooth, continuous probability manifolds ideal for sequence emission modeling.</li>
-<li><em>Limitations</em>: Slower training time (~390s CPU), sensitive to input scaling, and vulnerable to gradient saturation if hyperparameters are misconfigured.</li>
-<li><strong>Preprocessing Required</strong>: Strict <code>StandardScaler</code> feature normalization across all 14 columns.</li>
-<li><strong>Important Hyperparameters</strong>: Layer architecture <code>(128, 64, 32)</code>, activation <code>relu</code>, Adam optimizer with initial learning rate $\eta = 10^{-3}$, $L_2$ weight regularization <code>alpha=0.001</code>, <code>batch_size=256</code>, <code>max_iter=100</code>.</li>
-<li><strong>Loss Function</strong>: Binary Cross-Entropy with Backpropagation and L2 Weight Decay:
-   $$\mathcal{L} = -\frac{1}{N} \sum_{i=1}^N \left[ y_i \log p_i + (1 - y_i) \log(1 - p_i) \right] + \frac{\alpha}{2} \sum_{l} |W_l|_F^2$$</li>
-<li><strong>Cross-Validation Macro F1</strong>: <strong>0.8325</strong></li>
-<li><strong>Classification Accuracy</strong>: <strong>95.88%</strong> (Top-1 Observation Accuracy: <strong>65.59%</strong>).</li>
-<li><strong>Student-Test Results</strong>: Macro F1: <strong>0.8310</strong>, PR-AUC: <strong>0.7318</strong>, Binary Log-Loss: <strong>0.1273</strong>, Latency: <strong>0.002 ms / point</strong>.</li>
-<li><strong>Overfitting / Underfitting Analysis</strong>: <strong>Well-Regularized Generalization</strong>. Weight decay (<code>alpha=0.001</code>) and early stopping effectively prevented over-parameterization. While competitive, LightGBM outperformed the MLP by +0.018 Macro F1 due to the natural alignment between decision tree orthogonal splits and kinematic thresholds.</li>
-</ol>
-<p><img alt="Figure 13: Multi-Layer Perceptron (MLP) Training Loss Convergence" src="images/mlp_training_loss.png" />
-<em>Figure 13: Multi-Layer Perceptron (MLP) Training Loss Curve — Smooth backpropagation convergence under Adam optimization.</em></p>
-<hr />
-<h2>SECTION 8: Key Engineering Insights &amp; Conclusions</h2>
-<p>Developing, auditing, and benchmarking PathSnap yielded four key engineering insights for real-world geospatial machine learning:</p>
-<ol>
-<li><strong>Validation Design is Everything</strong>: Standard random K-Fold cross-validation creates an illusion of performance on spatial trajectory data. By grouping observations strictly by <code>trip_id</code> (<code>GroupKFold</code>), we ensured our models were evaluated on genuine out-of-sample generalization to unseen road topologies.</li>
-<li><strong>Physics Invariance Beats Memorization</strong>: Eliminating all local graph identifiers and raw coordinates prevented our models from falling into ID-memorization traps, enabling our 14-feature formulation to transfer seamlessly across European highway networks and dense urban subgraphs.</li>
-<li><strong>Kinematic Thresholds Require Domain Context</strong>: Identifying that our benchmark data originated from German Autobahns (A5/A9) rather than city streets allowed us to adjust our velocity threshold to 270 km/h, rescuing 35% of valid driving points and achieving <strong>99.95% dataset retention</strong>.</li>
-<li><strong>Machine Learning and Graph Algorithms Complement Each Other</strong>: Gradient boosting excels at instantaneous kinematic classification (71.42% raw Top-1 accuracy), while Hidden Markov Models and Dijkstra bridge splicing enforce topological continuity, pushing final sequence reconstruction to <strong>100.00% Continuity</strong> and <strong>99.46% Route Accuracy</strong>.</li>
-</ol>
-<hr />
-<h3>Official Verification &amp; Artifact Locations:</h3>
+<h2>8. Academic Integrity &amp; Verification Artifacts</h2>
+<h3>8.1 Compliance Statement</h3>
+<p>This project, codebase, and technical report represent the original and collaborative engineering work of Team Victus. All experimental numbers, cross-validation scores, inference latencies, and route continuity metrics reported in this document are empirically verified and reproducible from the submitted repository.</p>
+<h3>8.2 Official Verification &amp; Artifact Locations</h3>
 <ul>
 <li><strong>Consolidated Technical Report (Markdown)</strong>: <a href="file:///c:/Users/adity/Downloads/ML%20HACKATHON/ml_hackathon/docs/PathSnap_Consolidated_Technical_Report.md"><code>docs/PathSnap_Consolidated_Technical_Report.md</code></a></li>
 <li><strong>Consolidated Technical Report (HTML)</strong>: <a href="file:///c:/Users/adity/Downloads/ML%20HACKATHON/ml_hackathon/docs/PathSnap_Consolidated_Technical_Report.html"><code>docs/PathSnap_Consolidated_Technical_Report.html</code></a></li>
