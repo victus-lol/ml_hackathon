@@ -19,6 +19,15 @@ To prevent merge conflicts, accidental overwrites, and code regression, the `CON
   1. Provide a concise **Summary of What Was Done**.
   2. Clearly declare the **Next Upcoming Tasks** to maintain synchronized team progress.
 
+#### 3. Code Governance & Gatekeeping Protocol (Teammate 2 Exclusivity)
+* **Context Files Free-Commit Policy**:
+  - Whenever making commits inside the `CONTEXT FILES/` directory (notes, documentation, research, analysis, markdown references), **no permission, gatekeeping, or checks are required by anyone**. Teammates can freely push documentation to their own folder.
+* **Mandatory PR & Code Review Gate (Strict Gatekeeping)**:
+  - While pushing **ANY code** (`.py`, `.sh`, `.ipynb`, scripts), pipelines, models, API/UI implementations, or critical system files, teammates must open a **Pull Request (PR)** or branch.
+  - **ONLY Teammate 2 (Aditya / Antigravity)** is authorized to verify, audit, and push code files or important system files to `main`.
+  - For every incoming PR, Antigravity will thoroughly scan the modified files, report to Aditya exactly what the code is doing, check for guideline violations (e.g., ground-truth leakage, ID memorization, global scaler leakage, unhandled graph disconnections), and tell Aditya whether it is **SAFE TO PUSH**.
+  - **No teammate other than Teammate 2 may merge or push code directly to `main`.**
+
 ---
 
 ### SECTION 2: OFFICIAL COURSE & EVALUATION GUIDELINES (PES UNIVERSITY)
