@@ -1,31 +1,33 @@
-"""Laptop 1 FastAPI service for server-side trip loading and map matching."""
-
+"""Laptop 1 prediction API. The inference path never opens reference route files."""
 from __future__ import annotations
 
-import logging
 import os
+import logging
 import re
 import time
 from pathlib import Path
 from typing import Any
 
+import joblib
 import numpy as np
 import psutil
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict
 
-from pipeline_contract import MatchEngine, load_engine
+from decoder import bridge_route, decode
+from pathsnap import FEATURES, _candidate_frame, load_trip, trip_ids
 
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-LOGGER = logging.getLogger("pathsnap.api")
-DEFAULT_DATA_ROOT = Path(__file__).parent / "data" / "evaluator_test"
-DATA_ROOT = Path(os.environ.get("PATHSNAP_EVALUATOR_DIR", DEFAULT_DATA_ROOT)).resolve()
-TRIP_ID_PATTERN = re.compile(r"^\d{8}$")
-
-app = FastAPI(title="PathSnap API", version="1.0.0")
-_engine: MatchEngine | None = None
-_engine_error: str | None = None
+DATA_ROOT = Path(os.environ.get("PATHSNAP_DATA_DIR", "data/evaluator_test")).resolve()
+MODEL_PATH = Path(os.environ.get("PATHSNAP_MODEL", "artifacts/experiments/final_model.joblib")).resolve()
+DATA_KIND = os.environ.get("PATHSNAP_DATA_KIND", "evaluator")
+HMM_BETA_M = float(os.environ.get("PATHSNAP_HMM_BETA_M", "50"))
+HMM_SIGMA_M = float(os.environ.get("PATHSNAP_HMM_SIGMA_M", "25"))
+ID_RE = re.compile(r"^\d{8}$")
+app = FastAPI(title="PathSnap model and HMM API", version="1.0")
+logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s")
+LOGGER=logging.getLogger("pathsnap.api")
+_bundle: dict[str, Any] | None = None
+_model_error: str | None = None
 
 
 class MatchRequest(BaseModel):
@@ -33,151 +35,99 @@ class MatchRequest(BaseModel):
     trip_id: str
 
 
-def get_engine() -> MatchEngine | None:
-    global _engine, _engine_error
-    if _engine is None and _engine_error is None:
+def get_bundle():
+    global _bundle, _model_error
+    if _bundle is None and _model_error is None:
         try:
-            _engine = load_engine()
-        except Exception as error:
-            _engine_error = str(error)
-            LOGGER.warning("Matcher not ready: %s", _engine_error)
-    return _engine
+            loaded = joblib.load(MODEL_PATH)
+            if not isinstance(loaded, dict) or "model" not in loaded:
+                raise ValueError("Model artifact must be a dict with a 'model' entry")
+            _bundle = loaded
+        except Exception as exc:
+            _model_error = str(exc)
+    return _bundle
 
 
-def trip_directory(trip_id: str) -> Path:
-    if not TRIP_ID_PATTERN.fullmatch(trip_id):
-        raise HTTPException(status_code=400, detail="trip_id must contain eight digits.")
-    path = (DATA_ROOT / trip_id).resolve()
-    if path.parent != DATA_ROOT:
-        raise HTTPException(status_code=400, detail="Invalid trip_id.")
-    return path
+def valid_trip_path(tid: str) -> Path:
+    if not ID_RE.fullmatch(tid):
+        raise HTTPException(400, "trip_id must be eight digits")
+    folder = (DATA_ROOT / tid).resolve()
+    if folder.parent != DATA_ROOT:
+        raise HTTPException(400, "Invalid trip_id")
+    return folder
 
 
-def read_trip(trip_id: str) -> tuple[list[list[float]], list[list[float]], list[list[int]]]:
-    folder = trip_directory(trip_id)
-    track_path = folder / f"{trip_id}.track"
-    nodes_path = folder / f"{trip_id}.nodes"
-    arcs_path = folder / f"{trip_id}.arcs"
-    if not all(path.is_file() for path in (track_path, nodes_path, arcs_path)):
-        raise HTTPException(status_code=404, detail="Trip data is unavailable on the API server.")
-
-    try:
-        track = np.loadtxt(track_path, dtype=np.float64, ndmin=2)
-        nodes = np.loadtxt(nodes_path, dtype=np.float64, ndmin=2)
-        arcs = np.loadtxt(arcs_path, dtype=np.int64, ndmin=2)
-    except (OSError, ValueError) as error:
-        raise HTTPException(status_code=422, detail=f"Could not read trip data: {error}") from error
-
-    if track.shape[1] != 3 or nodes.shape[1] != 2 or arcs.shape[1] != 2:
-        raise HTTPException(status_code=422, detail="Trip files have unexpected column counts.")
-    if not np.isfinite(track).all() or not np.isfinite(nodes).all():
-        raise HTTPException(status_code=422, detail="Trip coordinates or timestamps are invalid.")
-    if np.any(np.abs(track[:, 0]) > 180) or np.any(np.abs(nodes[:, 0]) > 180):
-        raise HTTPException(status_code=422, detail="Longitude values are outside valid bounds.")
-    if np.any(np.abs(track[:, 1]) > 90) or np.any(np.abs(nodes[:, 1]) > 90):
-        raise HTTPException(status_code=422, detail="Latitude values are outside valid bounds.")
-    if arcs.size and (arcs.min() < 0 or arcs.max() >= len(nodes)):
-        raise HTTPException(status_code=422, detail="Trip network references a missing node.")
-    return track.tolist(), nodes.tolist(), arcs.tolist()
-
-
-def list_trip_ids() -> list[str]:
+def discover_ids() -> list[str]:
     if not DATA_ROOT.is_dir():
         return []
-    trip_ids: list[str] = []
-    for folder in sorted(DATA_ROOT.iterdir()):
-        trip_id = folder.name
-        if folder.is_dir() and TRIP_ID_PATTERN.fullmatch(trip_id):
-            names = [folder / f"{trip_id}{suffix}" for suffix in (".track", ".nodes", ".arcs")]
-            if all(path.is_file() for path in names):
-                trip_ids.append(trip_id)
-    return trip_ids
-
-
-def clean_metrics(value: Any) -> dict[str, float]:
-    allowed_names = {
-        "accuracy", "top1_accuracy", "precision", "recall", "f1", "macro_f1",
-        "log_loss", "route_continuity", "continuity_score", "candidate_miss_rate",
-    }
-    if not isinstance(value, dict):
-        raise HTTPException(status_code=500, detail="Matcher returned invalid metrics.")
-    clean: dict[str, float] = {}
-    for name, metric in value.items():
-        if name in allowed_names and isinstance(metric, (int, float, np.integer, np.floating)):
-            if not isinstance(metric, (bool, np.bool_)) and np.isfinite(metric):
-                clean[name] = float(metric)
-    return clean
+    return [tid for tid in trip_ids(DATA_ROOT) if ID_RE.fullmatch(tid) and all(
+        (DATA_ROOT / tid / f"{tid}{ext}").is_file() for ext in (".track", ".nodes", ".arcs")
+    )]
 
 
 @app.get("/api/v1/health")
-def health() -> dict[str, Any]:
-    engine = get_engine()
-    model_ready = bool(engine and engine.is_ready())
-    data_ready = DATA_ROOT.is_dir()
-    available_trip_count = len(list_trip_ids())
-    process_memory_mb = psutil.Process().memory_info().rss / (1024 * 1024)
-    return {
-        "status": "healthy",
-        "service": "PathSnap Model & HMM API",
-        "wire_protocol": "No ground-truth labels are accepted or returned.",
-        "ready": model_ready and data_ready and available_trip_count == 10,
-        "model_ready": model_ready,
-        "data_directory_ready": data_ready,
-        "available_trip_count": available_trip_count,
-        "memory_usage_mb": round(process_memory_mb, 1),
-        "matcher_error": _engine_error,
-    }
+def health():
+    bundle = get_bundle()
+    ids = discover_ids()
+    return {"status":"healthy", "ready":bool(bundle and len(ids)==10 and DATA_KIND=="evaluator"),
+        "model_ready":bundle is not None, "evaluator_trip_count":len(ids),
+        "configured_data_kind":DATA_KIND,
+        "memory_usage_mb":round(psutil.Process().memory_info().rss/(1024*1024),1),
+        "model_error":_model_error,
+        "wire_protocol":"trip_id request; no reference labels accepted or returned"}
 
 
 @app.get("/api/v1/trips")
-def trips() -> dict[str, list[str]]:
-    """Return IDs only; the UI never reads trip files directly."""
-    return {"trip_ids": list_trip_ids()}
+def trips():
+    return {"trip_ids":discover_ids()}
 
 
 @app.post("/api/v1/match")
-def match_trip(request: MatchRequest) -> dict[str, Any]:
-    engine = get_engine()
-    if engine is None or not engine.is_ready():
-        raise HTTPException(status_code=503, detail="Matcher is not ready; no prediction was produced.")
-
-    track, nodes, arcs = read_trip(request.trip_id)
-    start = time.perf_counter()
-    LOGGER.info("Matching trip_id=%s", request.trip_id)
+def match(request: MatchRequest):
+    bundle=get_bundle()
+    if bundle is None:
+        raise HTTPException(503,"Prediction model is not loaded")
+    folder=valid_trip_path(request.trip_id)
+    if not all((folder/f"{request.trip_id}{ext}").is_file() for ext in (".track",".nodes",".arcs")):
+        raise HTTPException(404,"Trip inputs unavailable on API server")
     try:
-        result = engine.match_trip(request.trip_id, track, nodes, arcs)
-    except Exception as error:
-        LOGGER.exception("Matching failed for trip_id=%s", request.trip_id)
-        raise HTTPException(status_code=500, detail="Matching failed; see API logs.") from error
-
-    predicted_route = result.get("predicted_route")
-    predicted_coordinates = result.get("predicted_coordinates")
-    if not isinstance(predicted_route, list) or not predicted_route or not isinstance(predicted_coordinates, list) or not predicted_coordinates:
-        raise HTTPException(status_code=500, detail="Matcher returned an invalid result.")
-    if any(not isinstance(arc_id, (int, np.integer)) or arc_id < 0 for arc_id in predicted_route):
-        raise HTTPException(status_code=500, detail="Matcher returned invalid predicted arc IDs.")
-    clean_coordinates: list[list[float]] = []
-    for point in predicted_coordinates:
-        if not isinstance(point, (list, tuple)) or len(point) != 2:
-            raise HTTPException(status_code=500, detail="Matcher returned invalid route coordinates.")
-        longitude, latitude = float(point[0]), float(point[1])
-        if not np.isfinite([longitude, latitude]).all() or abs(longitude) > 180 or abs(latitude) > 90:
-            raise HTTPException(status_code=500, detail="Matcher returned invalid route coordinates.")
-        clean_coordinates.append([longitude, latitude])
-
-    allowed_metrics = clean_metrics(result.get("metrics", {}))
-    latency_ms = (time.perf_counter() - start) * 1000.0
-    LOGGER.info("Completed trip_id=%s latency_ms=%.2f", request.trip_id, latency_ms)
-    return {
-        "trip_id": request.trip_id,
-        "track_coordinates": [[point[0], point[1]] for point in track],
-        "predicted_route": [int(arc_id) for arc_id in predicted_route],
-        "predicted_coordinates": clean_coordinates,
-        "predicted_route_geojson": {
-            "type": "Feature",
-            "geometry": {"type": "LineString", "coordinates": clean_coordinates},
-            "properties": {"arc_ids": [int(arc_id) for arc_id in predicted_route]},
-        },
-        "metrics": allowed_metrics,
-        "latency_ms": round(latency_ms, 2),
-    }
+        data=load_trip(folder,include_route=False)
+    except (OSError,ValueError) as exc:
+        raise HTTPException(422,f"Trip input could not be parsed: {exc}") from exc
+    t0=time.perf_counter()
+    LOGGER.info("Match request trip_id=%s",request.trip_id)
+    frame=_candidate_frame(data,labeled=False)
+    if frame.empty:
+        raise HTTPException(422,"No road candidates could be generated")
+    feature_names=bundle.get("features",FEATURES)
+    if feature_names != FEATURES:
+        raise HTTPException(500,"Model feature schema does not match runtime feature code")
+    probs=bundle["model"].predict_proba(frame[feature_names].to_numpy(np.float32))
+    classes=list(bundle["model"].classes_)
+    p=probs[:,classes.index(1)] if 1 in classes else np.zeros(len(frame))
+    if bundle.get("calibrator") is not None:
+        p=bundle["calibrator"].predict(p)
+    frame["_p"]=p
+    candidate_sets=[]
+    for _,g in frame.groupby("observation_id",sort=True):
+        candidate_sets.append([{"arc_id":int(r["candidate_arc_id"]),"p":max(float(r["_p"]),1e-9),
+            "distance_m":float(r["distance_m"]),"fraction":float(r["projection_fraction"])} for r in g.to_dict("records")])
+    obs_ids=sorted(frame.observation_id.unique())
+    pred=decode(candidate_sets,data["arcs"],data["lengths"],data["gps_xy"][obs_ids],data["track"][obs_ids,2],
+                beta_m=HMM_BETA_M,sigma_m=HMM_SIGMA_M)
+    route=bridge_route(pred,data["arcs"],data["lengths"])
+    route_coords=[]
+    for arc_id in route:
+        u,v=data["arcs"][arc_id]
+        a=data["nodes"][u].tolist(); b=data["nodes"][v].tolist()
+        if route_coords and route_coords[-1]==a:
+            route_coords.append(b)
+        else:
+            route_coords.extend([a,b])
+    latency=(time.perf_counter()-t0)*1000
+    LOGGER.info("Completed trip_id=%s latency_ms=%.2f candidate_count=%d",request.trip_id,latency,len(frame))
+    return {"trip_id":request.trip_id,
+        "track_coordinates":data["track"][:,0:2].tolist(),
+        "predicted_route":route,
+        "predicted_coordinates":route_coords,
+        "metrics":{},"latency_ms":round(latency,2)}
