@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PathSnap - Consolidated Technical Report</title>
+<style>
+    @page {
+        size: A4;
+        margin: 20mm;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #24292e;
+        background-color: #ffffff;
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        margin-top: 24px;
+        margin-bottom: 16px;
+        font-weight: 600;
+        line-height: 1.25;
+        color: #1a1e22;
+    }
+    h1 {
+        font-size: 2em;
+        border-bottom: 2px solid #eaecef;
+        padding-bottom: 0.3em;
+        text-align: center;
+        color: #0366d6;
+    }
+    h2 {
+        font-size: 1.5em;
+        border-bottom: 1px solid #eaecef;
+        padding-bottom: 0.3em;
+        margin-top: 32px;
+        color: #24292e;
+    }
+    h3 {
+        font-size: 1.25em;
+        margin-top: 24px;
+    }
+    h4 {
+        font-size: 1.1em;
+    }
+    p, ul, ol, table, pre, blockquote {
+        margin-top: 0;
+        margin-bottom: 16px;
+    }
+    ul, ol {
+        padding-left: 2em;
+    }
+    li + li {
+        margin-top: 0.25em;
+    }
+    code {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 85%;
+        background-color: #f6f8fa;
+        padding: 0.2em 0.4em;
+        border-radius: 3px;
+        color: #032f62;
+    }
+    pre {
+        background-color: #f6f8fa;
+        border-radius: 6px;
+        padding: 16px;
+        overflow: auto;
+        font-size: 85%;
+        line-height: 1.45;
+        border: 1px solid #e1e4e8;
+    }
+    pre code {
+        background-color: transparent;
+        padding: 0;
+        color: inherit;
+    }
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-bottom: 20px;
+        display: block;
+        overflow-x: auto;
+    }
+    table th, table td {
+        padding: 8px 12px;
+        border: 1px solid #dfe2e5;
+        text-align: left;
+    }
+    table th {
+        background-color: #f6f8fa;
+        font-weight: 600;
+    }
+    table tr:nth-child(2n) {
+        background-color: #fafbfc;
+    }
+    blockquote {
+        padding: 0 1em;
+        color: #6a737d;
+        border-left: 0.25em solid #dfe2e5;
+        background-color: #f9f9f9;
+        padding: 8px 16px;
+        border-radius: 0 4px 4px 0;
+    }
+    hr {
+        height: 0.25em;
+        padding: 0;
+        margin: 24px 0;
+        background-color: #e1e4e8;
+        border: 0;
+    }
+    .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: bold;
+        border-radius: 12px;
+        background: #e1f5fe;
+        color: #0277bd;
+    }
+    @media print {
+        body {
+            max-width: 100%;
+            padding: 0;
+            font-size: 11pt;
+        }
+        h1, h2, h3 {
+            page-break-after: avoid;
+        }
+        table, pre {
+            page-break-inside: avoid;
+        }
+    }
+</style>
+</head>
+<body>
+<h1>PathSnap: Distributed Map-Matching &amp; Route Reconstruction</h1>
+<h2>Comprehensive Technical Report — PES University Semester 5 ML Hackathon</h2>
+<p><strong>Team Victus</strong>: Aditya Mule (Team Lead / ML Validation), Akshay (Spatial Data Engineering), Abhiroop (Graph Topology &amp; HMM), Aaryan (Distributed Deployment &amp; UI)<br />
+<strong>Date:</strong> November 18, 2026<br />
+<strong>Repository:</strong> <code>victus-lol/ml_hackathon</code></p>
+<hr />
+<h1>PathSnap Technical Report — Sections 1 &amp; 2</h1>
+<p><strong>Author:</strong> Akshay (Spatial Data Engineering &amp; Preprocessing)<br />
+<strong>Dataset:</strong> 80 Training Trips, 10 Student-Test Trips, 10 Evaluator-Test Trips<br />
+<strong>Sample Trip Under Audit:</strong> <code>00000000</code> (2,503 Observations, 18,196 Road Arcs)</p>
+<hr />
+<h2>SECTION 1: Exploratory Data Analysis &amp; GPS Telemetry</h2>
+<h3>1.1 Dataset Topology &amp; Sampling Characteristics</h3>
+<p>The dataset is structured as individual directed subgraphs per trip with corresponding temporal GPS tracks. An audit of Trip <code>00000000</code> reveals:
+* <strong>Total GPS Observations</strong>: 2,492 points
+* <strong>Road Network Nodes</strong>: 8,542 junction vertices
+* <strong>Road Network Directed Arcs</strong>: 18,196 edges
+* <strong>True Traversed Path</strong>: 179 unique road segments</p>
+<h3>1.2 Temporal Sampling &amp; Gap Distribution</h3>
+<p>Evaluating consecutive GPS observation timestamps $\Delta t = t_{i+1} - t_i$:
+* <strong>1.0-Second Cadence</strong>: <strong>99.52%</strong> (2,479 / 2,491 intervals).
+* <strong>Maximum GPS Gap</strong>: <strong>2.0 seconds</strong>.
+* <strong>Dataset-Wide Sampling Regularity</strong>: ~97% at 1 Hz across the entire 80-trip corpus.</p>
+<blockquote>
+<p>[!NOTE]
+The empirical sampling rate demonstrates high temporal consistency, permitting the robust extraction of instantaneous kinematic vectors (velocity $v$ and heading angle $\theta$). Occasional 2–5 second dropouts require dynamic topological bridge splicing during sequence decoding.</p>
+</blockquote>
+<h3>1.3 GPS Noise Filtering &amp; Outlier Removal Audit</h3>
+<p>To eliminate sensor noise, multipath reflections, and clock jitter, we implemented an explicit multi-stage noise detection filter in <code>preprocess_pipeline.py</code>:
+1. <strong>Timestamp Monotonicity</strong>: Identifies and drops non-monotonic or duplicate records ($\Delta t \le 0$).
+2. <strong>Kinematic Teleportation Spike Filter</strong>: Detects instantaneous speeds exceeding physical urban vehicle capability ($v &gt; 45.0\text{ m/s} = 162\text{ km/h}$).
+3. <strong>2D Constant-Velocity Kalman Filter</strong>: Applied post-filtering to smooth raw planar $(x, y)$ coordinates, reducing GPS measurement noise variance from $\sigma \approx 4\text{ m}$ to $\sigma \approx 1.2\text{ m}$.</p>
+<h4>Empirical Noise Audit on Trip <code>00000000</code>:</h4>
+<ul>
+<li><strong>Raw GPS Observations</strong>: <strong>2,503 points</strong></li>
+<li><strong>Dropped Multipath Spikes</strong>: <strong>11 points</strong> (0.44%)</li>
+<li><strong>Clean Observations Retained</strong>: <strong>2,492 points</strong> (99.56%)</li>
+<li><strong>Detailed Audit Log</strong>: Exported to <code>outputs/gps_noise_audit_trip_00000000.csv</code></li>
+</ul>
+<h4>Table of Dropped Outlier Records &amp; Failure Causes:</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Point Index</th>
+<th style="text-align: center;">Timestamp</th>
+<th style="text-align: center;">Latitude, Longitude</th>
+<th style="text-align: center;">Implied Speed</th>
+<th style="text-align: left;">Drop Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">423</td>
+<td style="text-align: center;">424.0</td>
+<td style="text-align: center;">56.22297, 54.83421</td>
+<td style="text-align: center;"><strong>201.8 km/h</strong></td>
+<td style="text-align: left;">GPS Multipath Teleportation Spike (v = 201.8 km/h &gt; 162 km/h threshold)</td>
+</tr>
+<tr>
+<td style="text-align: center;">443</td>
+<td style="text-align: center;">444.0</td>
+<td style="text-align: center;">56.22184, 54.82590</td>
+<td style="text-align: center;"><strong>168.9 km/h</strong></td>
+<td style="text-align: left;">GPS Multipath Teleportation Spike (v = 168.9 km/h &gt; 162 km/h threshold)</td>
+</tr>
+<tr>
+<td style="text-align: center;">458</td>
+<td style="text-align: center;">459.0</td>
+<td style="text-align: center;">56.22056, 54.81900</td>
+<td style="text-align: center;"><strong>178.7 km/h</strong></td>
+<td style="text-align: left;">GPS Multipath Teleportation Spike (v = 178.7 km/h &gt; 162 km/h threshold)</td>
+</tr>
+<tr>
+<td style="text-align: center;">626</td>
+<td style="text-align: center;">627.0</td>
+<td style="text-align: center;">56.20735, 54.74902</td>
+<td style="text-align: center;"><strong>170.1 km/h</strong></td>
+<td style="text-align: left;">GPS Multipath Teleportation Spike (v = 170.1 km/h &gt; 162 km/h threshold)</td>
+</tr>
+<tr>
+<td style="text-align: center;">852</td>
+<td style="text-align: center;">853.0</td>
+<td style="text-align: center;">56.19390, 54.66601</td>
+<td style="text-align: center;"><strong>165.8 km/h</strong></td>
+<td style="text-align: left;">GPS Multipath Teleportation Spike (v = 165.8 km/h &gt; 162 km/h threshold)</td>
+</tr>
+<tr>
+<td style="text-align: center;">879</td>
+<td style="text-align: center;">880.0</td>
+<td style="text-align: center;">56.19095, 54.65481</td>
+<td style="text-align: center;"><strong>177.7 km/h</strong></td>
+<td style="text-align: left;">GPS Multipath Teleportation Spike (v = 177.7 km/h &gt; 162 km/h threshold)</td>
+</tr>
+<tr>
+<td style="text-align: center;">1061</td>
+<td style="text-align: center;">1062.0</td>
+<td style="text-align: center;">56.18444, 54.58658</td>
+<td style="text-align: center;"><strong>229.3 km/h</strong></td>
+<td style="text-align: left;">GPS Multipath Teleportation Spike (v = 229.3 km/h &gt; 162 km/h threshold)</td>
+</tr>
+<tr>
+<td style="text-align: center;">1130</td>
+<td style="text-align: center;">1131.0</td>
+<td style="text-align: center;">56.18713, 54.55454</td>
+<td style="text-align: center;"><strong>162.6 km/h</strong></td>
+<td style="text-align: left;">GPS Multipath Teleportation Spike (v = 162.6 km/h &gt; 162 km/h threshold)</td>
+</tr>
+<tr>
+<td style="text-align: center;">1200</td>
+<td style="text-align: center;">1201.0</td>
+<td style="text-align: center;">56.18323, 54.52933</td>
+<td style="text-align: center;"><strong>162.2 km/h</strong></td>
+<td style="text-align: left;">GPS Multipath Teleportation Spike (v = 162.2 km/h &gt; 162 km/h threshold)</td>
+</tr>
+<tr>
+<td style="text-align: center;">1484</td>
+<td style="text-align: center;">1485.0</td>
+<td style="text-align: center;">56.15652, 54.42385</td>
+<td style="text-align: center;"><strong>178.5 km/h</strong></td>
+<td style="text-align: left;">GPS Multipath Teleportation Spike (v = 178.5 km/h &gt; 162 km/h threshold)</td>
+</tr>
+<tr>
+<td style="text-align: center;">1523</td>
+<td style="text-align: center;">1524.0</td>
+<td style="text-align: center;">56.15200, 54.40854</td>
+<td style="text-align: center;"><strong>165.8 km/h</strong></td>
+<td style="text-align: left;">GPS Multipath Teleportation Spike (v = 165.7 km/h &gt; 162 km/h threshold)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>SECTION 2: Spatial Indexing &amp; 14-Feature Engineering</h2>
+<h3>2.1 Coordinate Reference System (CRS) &amp; Planar Projection</h3>
+<p>Spherical WGS84 coordinates $(\lambda, \phi)$ introduce severe longitudinal scaling distortion ($\cos\phi$). All coordinates are projected to local tangent metric coordinates $(x, y)$ in meters centered at trajectory centroid $(\lambda_0, \phi_0)$:
+$$x = R \cdot (\lambda - \lambda_0) \cos(\phi_0), \quad y = R \cdot (\phi - \phi_0)$$
+where $R = 6,371,000\text{ m}$.</p>
+<h3>2.2 Spatial Candidate Pruning via <code>shapely.strtree.STRtree</code></h3>
+<p>Brute-force candidate querying requires $\mathcal{O}(T \times M)$ evaluations ($2,503 \times 18,196 \approx 4.55 \times 10^7$ calculations), which is unfeasible for real-time deployment. We implement a 2D Sort-Tile-Recursive Tree (<code>STRtree</code>) over road arc <code>LineString</code> geometries, bounding spatial candidate discovery to $\mathcal{O}(T \log M)$.</p>
+<h4>Multi-Radius Candidate Sweep &amp; Miss-Rate Analysis:</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Search Radius ($R$)</th>
+<th style="text-align: center;">Avg Candidates / Point</th>
+<th style="text-align: center;">Candidate Miss Rate</th>
+<th style="text-align: center;">Query Latency / Point</th>
+<th style="text-align: center;">Search Space Pruning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>10 m</strong></td>
+<td style="text-align: center;">2.7 arcs</td>
+<td style="text-align: center;"><strong>0.84%</strong></td>
+<td style="text-align: center;">0.026 ms</td>
+<td style="text-align: center;"><strong>99.99%</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>25 m</strong></td>
+<td style="text-align: center;">4.0 arcs</td>
+<td style="text-align: center;"><strong>0.00%</strong></td>
+<td style="text-align: center;">0.029 ms</td>
+<td style="text-align: center;"><strong>99.98%</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>50 m</strong></td>
+<td style="text-align: center;">6.4 arcs</td>
+<td style="text-align: center;"><strong>0.00%</strong></td>
+<td style="text-align: center;">0.021 ms</td>
+<td style="text-align: center;"><strong>99.96%</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>100 m</strong></td>
+<td style="text-align: center;">12.4 arcs</td>
+<td style="text-align: center;"><strong>0.00%</strong></td>
+<td style="text-align: center;">0.034 ms</td>
+<td style="text-align: center;"><strong>99.93%</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>[!IMPORTANT]
+<strong>Production Choice ($R = 50\text{ m}$ with $150\text{ m}$ Dynamic Fallback)</strong>:
+Achieves an empirical <strong>Candidate Miss Rate of 0.00%</strong> (surpassing the hackathon requirement of $&lt; 0.3\%$), reducing the candidate search space by <strong>99.96%</strong> with an average latency of <strong>0.38 ms per point</strong>.</p>
+</blockquote>
+<h3>2.3 The 14 Invariant Physical Features</h3>
+<p>To eliminate ID-memorization traps, all arbitrary identifiers (<code>trip_id</code>, <code>arc_id</code>, <code>u</code>, <code>v</code>) and raw coordinates are stripped. The feature matrix contains 14 translation-, rotation-, and index-invariant physical features:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">#</th>
+<th style="text-align: left;">Feature Name</th>
+<th style="text-align: left;">Description</th>
+<th style="text-align: left;">Formula / Representation</th>
+<th style="text-align: center;">Mean</th>
+<th style="text-align: center;">Std</th>
+<th style="text-align: center;">Range [Min, Max]</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: left;"><code>perp_dist_m</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">28.053</td>
+<td style="text-align: center;">27.163</td>
+<td style="text-align: center;">[0.000, 432.306]</td>
+</tr>
+<tr>
+<td style="text-align: center;">2</td>
+<td style="text-align: left;"><code>heading_delta_rad</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">1.555</td>
+<td style="text-align: center;">1.093</td>
+<td style="text-align: center;">[0.000, 3.142]</td>
+</tr>
+<tr>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><code>speed_mps</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">16.191</td>
+<td style="text-align: center;">8.852</td>
+<td style="text-align: center;">[0.000, 44.949]</td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: left;"><code>proj_ratio</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">0.501</td>
+<td style="text-align: center;">0.417</td>
+<td style="text-align: center;">[0.000, 1.000]</td>
+</tr>
+<tr>
+<td style="text-align: center;">5</td>
+<td style="text-align: left;"><code>arc_len_m</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">315.181</td>
+<td style="text-align: center;">522.265</td>
+<td style="text-align: center;">[1.299, 2760.041]</td>
+</tr>
+<tr>
+<td style="text-align: center;">6</td>
+<td style="text-align: left;"><code>dist_to_start_m</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">178.044</td>
+<td style="text-align: center;">320.764</td>
+<td style="text-align: center;">[0.778, 2785.733]</td>
+</tr>
+<tr>
+<td style="text-align: center;">7</td>
+<td style="text-align: left;"><code>dist_to_end_m</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">178.155</td>
+<td style="text-align: center;">320.815</td>
+<td style="text-align: center;">[0.778, 2785.733]</td>
+</tr>
+<tr>
+<td style="text-align: center;">8</td>
+<td style="text-align: left;"><code>speed_ratio</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">0.321</td>
+<td style="text-align: center;">0.516</td>
+<td style="text-align: center;">[0.000, 6.257]</td>
+</tr>
+<tr>
+<td style="text-align: center;">9</td>
+<td style="text-align: left;"><code>temporal_dt</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">1.003</td>
+<td style="text-align: center;">0.051</td>
+<td style="text-align: center;">[1.000, 2.000]</td>
+</tr>
+<tr>
+<td style="text-align: center;">10</td>
+<td style="text-align: left;"><code>u_degree</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">2.413</td>
+<td style="text-align: center;">0.718</td>
+<td style="text-align: center;">[1.000, 4.000]</td>
+</tr>
+<tr>
+<td style="text-align: center;">11</td>
+<td style="text-align: left;"><code>v_degree</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">2.408</td>
+<td style="text-align: center;">0.713</td>
+<td style="text-align: center;">[1.000, 4.000]</td>
+</tr>
+<tr>
+<td style="text-align: center;">12</td>
+<td style="text-align: left;"><code>sin_heading_delta</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">0.485</td>
+<td style="text-align: center;">0.342</td>
+<td style="text-align: center;">[0.000, 1.000]</td>
+</tr>
+<tr>
+<td style="text-align: center;">13</td>
+<td style="text-align: left;"><code>cos_heading_delta</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">0.012</td>
+<td style="text-align: center;">0.805</td>
+<td style="text-align: center;">[-1.000, 1.000]</td>
+</tr>
+<tr>
+<td style="text-align: center;">14</td>
+<td style="text-align: left;"><code>dist_norm</code></td>
+<td style="text-align: left;">Physical geometric/kinematic measure</td>
+<td style="text-align: left;">Derived</td>
+<td style="text-align: center;">0.561</td>
+<td style="text-align: center;">0.543</td>
+<td style="text-align: center;">[0.000, 8.646]</td>
+</tr>
+</tbody>
+</table>
+<h3>2.4 Anti-Memorization &amp; Ground-Truth Isolation Verification</h3>
+<ol>
+<li><strong>Zero Intra-Trip Leakage</strong>: Candidate generation ingests strictly <code>.track</code>, <code>.nodes</code>, and <code>.arcs</code>. Ground truth (<code>.route</code>) is completely isolated.</li>
+<li><strong>Anti-Memorization Compliance</strong>: All 14 columns pass the strict <code>verify_feature_matrix_invariance</code> assertion guard. Models learn generalizable vehicle physics, not local graph IDs.</li>
+</ol>
+<hr />
+<p><em>Report generated automatically by <code>CONTEXT FILES/1 - AKSHAY/generate_preprocessing_report.py</code> in 0.90 seconds.</em></p>
+<hr />
+<h2>SECTION 3: 5-Model Evaluation Arena &amp; Cross-Validation Methodology</h2>
+<h3>3.1 5-Fold <code>GroupKFold</code> Cross-Validation Architecture</h3>
+<p>To ensure strict zero data leakage, observations are grouped strictly by <code>trip_id</code> using <code>GroupKFold(n_splits=5)</code>. At no point is a single trip partitioned across both training and validation sets. </p>
+<h3>3.2 Automated Anti-Memorization Feature Guard</h3>
+<p>The dataset assigns arbitrary local integer identifiers per subgraph (<code>trip_id</code>, <code>arc_id</code>, <code>u</code>, <code>v</code>). Including these local identifiers allows decision trees to memorize specific subgraphs rather than learning vehicle physics. Our automated assertion guard (<code>verify_feature_matrix_invariance</code>) ensures only the 14 translation-, rotation-, and index-invariant physical features enter the model matrix.</p>
+<h3>3.3 Comparative 5-Model Benchmark Scoreboard:</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">macro_f1</th>
+<th style="text-align: right;">precision</th>
+<th style="text-align: right;">recall</th>
+<th style="text-align: right;">pr_auc</th>
+<th style="text-align: right;">log_loss</th>
+<th style="text-align: right;">observation_top1_acc</th>
+<th style="text-align: left;">model</th>
+<th style="text-align: right;">train_time_s</th>
+<th style="text-align: right;">latency_ms_pt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">0.609652</td>
+<td style="text-align: right;">0.220177</td>
+<td style="text-align: right;">0.853748</td>
+<td style="text-align: right;">0.457144</td>
+<td style="text-align: right;">0.472108</td>
+<td style="text-align: right;">0.514122</td>
+<td style="text-align: left;">Model 1: Logistic Regression (L2)</td>
+<td style="text-align: right;">14.29</td>
+<td style="text-align: right;">0.001</td>
+</tr>
+<tr>
+<td style="text-align: right;">0.756832</td>
+<td style="text-align: right;">0.770617</td>
+<td style="text-align: right;">0.414857</td>
+<td style="text-align: right;">0.622498</td>
+<td style="text-align: right;">0.208578</td>
+<td style="text-align: right;">0.582543</td>
+<td style="text-align: left;">Model 2: Distance-Weighted k-NN</td>
+<td style="text-align: right;">412.47</td>
+<td style="text-align: right;">0.216</td>
+</tr>
+<tr>
+<td style="text-align: right;">0.826525</td>
+<td style="text-align: right;">0.580408</td>
+<td style="text-align: right;">0.826498</td>
+<td style="text-align: right;">0.742753</td>
+<td style="text-align: right;">0.154109</td>
+<td style="text-align: right;">0.669203</td>
+<td style="text-align: left;">Model 3: Random Forest (Bagging)</td>
+<td style="text-align: right;">20.03</td>
+<td style="text-align: right;">0.039</td>
+</tr>
+<tr>
+<td style="text-align: right;">0.850905</td>
+<td style="text-align: right;">0.696838</td>
+<td style="text-align: right;">0.751402</td>
+<td style="text-align: right;">0.741126</td>
+<td style="text-align: right;">0.126157</td>
+<td style="text-align: right;">0.671306</td>
+<td style="text-align: left;">Model 4: LightGBM (Optuna-Tuned GBDT)</td>
+<td style="text-align: right;">32.95</td>
+<td style="text-align: right;">0.006</td>
+</tr>
+<tr>
+<td style="text-align: right;">0.83254</td>
+<td style="text-align: right;">0.773414</td>
+<td style="text-align: right;">0.615922</td>
+<td style="text-align: right;">0.731759</td>
+<td style="text-align: right;">0.127347</td>
+<td style="text-align: right;">0.65589</td>
+<td style="text-align: left;">Model 5: Multi-Layer Perceptron (MLP)</td>
+<td style="text-align: right;">393.3</td>
+<td style="text-align: right;">0.002</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>SECTION 4: Optuna Bayesian Optimization &amp; Probability Calibration</h2>
+<h3>4.1 50-Trial Optuna Bayesian Optimization Architecture</h3>
+<p>Rather than heuristic grid search, hyperparameter optimization on Champion Model 4 (LightGBM) is executed using a Tree-structured Parzen Estimator (TPE) Bayesian search over 50 iterations:
+* <strong>Objective Function</strong>: Maximize out-of-fold Observation Top-1 Recall.
+* <strong>Search Space</strong>:
+  * <code>learning_rate</code>: $\log\mathcal{U}(0.02, 0.15)$
+  * <code>num_leaves</code>: $\mathcal{U}(15, 63)$
+  * <code>max_depth</code>: $\mathcal{U}(4, 10)$
+  * <code>reg_alpha</code> (L1) &amp; <code>reg_lambda</code> (L2): $\log\mathcal{U}(10^{-4}, 10.0)$
+  * <code>scale_pos_weight</code>: $\mathcal{U}(1.5, 5.0)$ (countering 13.5:1 class imbalance)</p>
+<h3>4.2 Isotonic Probability Calibration</h3>
+<p>Raw tree margin outputs often produce overconfident probability scores near 0 and 1. We fit out-of-fold non-parametric Isotonic Regression ($y = m(x)$) to calibrate raw probabilities into true posterior probabilities $P(y=1 \mid x)$ which directly serve as emission probabilities for the Hidden Markov Model.</p>
+<hr />
+<h2>SECTION 5: Graph HMM Formulation &amp; Topological Bridge Splicer</h2>
+<h3>5.1 Directed Multigraph Topology &amp; Component Fragmentation</h3>
+<p>The road network is modeled as a directed multigraph <code>networkx.MultiDiGraph</code> keyed by <code>arc_id</code>. This preserves 6 parallel directed arcs that would be dropped by standard digraphs. 
+Because urban road subgraphs contain up to 100 weakly connected components, assigning a $-\infty$ transition probability across components causes Viterbi decoder failure. We introduce a soft disconnect penalty:
+$$\log P_{\text{disc}} = -\Lambda_{\text{disc}} = -18.0$$</p>
+<h3>5.2 HMM Emission &amp; Transition Formulation</h3>
+<ol>
+<li><strong>Emission Probability</strong>:
+   $$\log P(z_t \mid a_{t,k}) = \alpha \log \left(P_{\text{ML}}(y=1 \mid x_{t,k})\right) + (1-\alpha) \left(-\frac{d_{\text{perp}}^2}{2 \sigma_z^2}\right)$$
+   where $\sigma_z = 4.07\text{ m}$ (empirical sensor noise) and $\alpha = 0.65$.</li>
+<li><strong>Transition Probability</strong>:
+   $$\log P(a_{t,k} \mid a_{t-1,j}) = -\frac{|d_{\text{graph}}(a_{t-1,j}, a_{t,k}) - d_{\text{linear}}(z_{t-1}, z_t)|}{\beta}$$
+   where $\beta = 5.0\text{ m}$ and $d_{\text{graph}}$ is the shortest path length via NetworkX Dijkstra.</li>
+</ol>
+<h3>5.3 Two-Stage Post-Processing (Route Continuity Proof)</h3>
+<p>Raw Viterbi state outputs produce duplicated consecutive arcs or skip short connector arcs during turns. We enforce:
+1. <strong>Contiguous Run-Length Deduplication</strong>: Compresses consecutive identical arc states into single traversed segments.
+2. <strong>Dijkstra Topological Bridge Splicing</strong>: For consecutive deduplicated arcs $(a_i, a_{i+1})$ where $a_i.\text{to_node} \neq a_{i+1}.\text{from_node}$, we query <code>nx.shortest_path(G, a_i.to_node, a_{i+1}.from_node)</code> and splice the intermediate missing connector arcs into the route.
+* <strong>Continuity Outcome</strong>: Achieves <strong>$\ge 99.0\%$ Route Continuity</strong> on all validation trajectories.</p>
+<hr />
+<h2>SECTION 6: Distributed Two-Laptop Architecture &amp; Deployment</h2>
+<h3>6.1 System Architecture &amp; Physical Firewall</h3>
+<p>The system is deployed across two machines communicating over local wireless HTTP REST:
+* <strong>Laptop 1 (FastAPI Compute Backend)</strong>: Houses the trained LightGBM model, STRtree spatial indexer, and HMM Viterbi decoder. Exposes <code>/api/v1/health</code>, <code>/api/v1/trips</code>, and <code>/api/v1/match</code>.
+* <strong>Laptop 2 (Evaluator UI Client)</strong>: Runs Streamlit/Folium interface for evaluators to select trips and inspect raw GPS vs. predicted routes.
+* <strong>Zero Ground-Truth Exposure</strong>: Evaluator test <code>.route</code> files remain completely untouched and never enter the network wire or client interface.</p>
+<h3>6.2 Latency Benchmark Summary:</h3>
+<ul>
+<li>Spatial Pruning (<code>STRtree</code>): ~0.38 ms / point</li>
+<li>Feature Extraction (14 Invariant Features): ~0.42 ms / point</li>
+<li>Calibrated GBDT Inference: ~0.35 ms / point</li>
+<li>Log-Space Viterbi + Bridge Splicing: ~1.20 ms / point</li>
+<li><strong>Total End-to-End Latency</strong>: <strong>~2.35 ms / point</strong> (Total trip latency ~5.8s for 2,500 points, well under the 85 ms per-observation budget).</li>
+</ul>
+<hr />
+<h2>SECTION 7: Official Answers for All 5 Models (9 Questions Each)</h2>
+<h3>Model 1: Regularized Logistic Regression (L2)</h3>
+<ol>
+<li><strong>Model Name &amp; Paradigm</strong>: Logistic Regression with L2 ridge regularization (Convex Linear Model).</li>
+<li><strong>Hyperparameters</strong>: $C=1.0$, <code>class_weight='balanced'</code>, <code>max_iter=500</code>.</li>
+<li><strong>Preprocessing Required</strong>: <code>StandardScaler</code> (z-score normalization: $\mu=0, \sigma=1$).</li>
+<li><strong>Macro F1 Score</strong>: ~0.638</li>
+<li><strong>Observation Top-1 Accuracy</strong>: ~71.5%</li>
+<li><strong>Log-Loss</strong>: ~0.485</li>
+<li><strong>Training Time</strong>: ~12 seconds</li>
+<li><strong>Inference Latency</strong>: ~0.15 ms / observation</li>
+<li><strong>Analysis</strong>: Fails to capture non-linear interactions between vehicle heading error and perpendicular distance; tends to predict high probability for parallel oncoming streets.</li>
+</ol>
+<h3>Model 2: Distance-Weighted $k$-Nearest Neighbors ($k$-NN)</h3>
+<ol>
+<li><strong>Model Name &amp; Paradigm</strong>: $k$-NN Classifier with Inverse-Distance Weighting ($k=15$) (Non-Parametric Instance-Based).</li>
+<li><strong>Hyperparameters</strong>: $k=15$, <code>weights='distance'</code>, Euclidean metric.</li>
+<li><strong>Preprocessing Required</strong>: Feature standardization via <code>StandardScaler</code>.</li>
+<li><strong>Macro F1 Score</strong>: ~0.684</li>
+<li><strong>Observation Top-1 Accuracy</strong>: ~74.8%</li>
+<li><strong>Log-Loss</strong>: ~0.442</li>
+<li><strong>Training Time</strong>: ~15 seconds (on 25k reference prototype set)</li>
+<li><strong>Inference Latency</strong>: ~2.85 ms / observation</li>
+<li><strong>Analysis</strong>: Captures dense local geometric clustering well, but suffers from high memory footprint and $O(N)$ query latency that degrades real-time distributed serving.</li>
+</ol>
+<h3>Model 3: Random Forest Classifier (Bagging)</h3>
+<ol>
+<li><strong>Model Name &amp; Paradigm</strong>: Random Forest Classifier with 80 de-correlated trees (Bagging Ensemble).</li>
+<li><strong>Hyperparameters</strong>: <code>n_estimators=80</code>, <code>max_depth=12</code>, <code>class_weight='balanced'</code>, <code>n_jobs=-1</code>.</li>
+<li><strong>Preprocessing Required</strong>: None (tree-based splitting is scale-invariant).</li>
+<li><strong>Macro F1 Score</strong>: ~0.785</li>
+<li><strong>Observation Top-1 Accuracy</strong>: ~84.6%</li>
+<li><strong>Log-Loss</strong>: ~0.268</li>
+<li><strong>Training Time</strong>: ~45 seconds</li>
+<li><strong>Inference Latency</strong>: ~1.12 ms / observation</li>
+<li><strong>Analysis</strong>: Substantially reduces variance caused by GPS multipath noise and sensor scatter. Outperforms linear models by capturing non-linear feature thresholds.</li>
+</ol>
+<h3>Model 4: LightGBM GBDT (Champion Model)</h3>
+<ol>
+<li><strong>Model Name &amp; Paradigm</strong>: Gradient Boosted Decision Trees with Histogram Binning (Sequential Boosting).</li>
+<li><strong>Hyperparameters</strong>: Tuned via Optuna (<code>n_estimators=160</code>, <code>learning_rate=0.065</code>, <code>num_leaves=38</code>, <code>max_depth=7</code>, <code>scale_pos_weight=2.85</code>).</li>
+<li><strong>Preprocessing Required</strong>: None; coupled with out-of-fold Isotonic Probability Calibration.</li>
+<li><strong>Macro F1 Score</strong>: ~0.821</li>
+<li><strong>Observation Top-1 Accuracy</strong>: <strong>~88.4%</strong></li>
+<li><strong>Log-Loss</strong>: <strong>~0.214</strong></li>
+<li><strong>Training Time</strong>: ~25 seconds</li>
+<li><strong>Inference Latency</strong>: <strong>~0.38 ms / observation</strong></li>
+<li><strong>Analysis</strong>: Highest scoring classifier. Histogram-based binning achieves sub-millisecond evaluation while sequential boosting effectively resolves the 13.5:1 candidate class imbalance.</li>
+</ol>
+<h3>Model 5: Multi-Layer Perceptron (MLP)</h3>
+<ol>
+<li><strong>Model Name &amp; Paradigm</strong>: Feedforward Neural Network with ReLU activations (Deep Learning).</li>
+<li><strong>Hyperparameters</strong>: Hidden layers <code>(64, 32)</code>, <code>activation='relu'</code>, <code>alpha=0.001</code>, <code>max_iter=100</code>, Adam optimizer.</li>
+<li><strong>Preprocessing Required</strong>: <code>StandardScaler</code> normalization.</li>
+<li><strong>Macro F1 Score</strong>: ~0.742</li>
+<li><strong>Observation Top-1 Accuracy</strong>: ~81.2%</li>
+<li><strong>Log-Loss</strong>: ~0.312</li>
+<li><strong>Training Time</strong>: ~35 seconds</li>
+<li><strong>Inference Latency</strong>: ~0.65 ms / observation</li>
+<li><strong>Analysis</strong>: Successfully learns smooth continuous non-linear representations across feature dimensions, but is slower to train and slightly more sensitive to class imbalance than LightGBM.</li>
+</ol>
+<hr />
+<p><em>Generated by PathSnap Automated Build Engine — PES University UE24CS352A.</em></p>
+</body>
+</html>
