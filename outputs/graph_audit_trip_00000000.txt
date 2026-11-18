@@ -1,0 +1,10 @@
+=== ROAD NETWORK GRAPH AUDIT (Trip 00000000) ===
+Total Nodes: 8542
+Total Directed Arcs: 18196
+Weakly Connected Components: 100
+Strongly Connected Components: 102
+Largest component size: 7466
+Isolated nodes: 0
+Route length: 179 | chained transitions: 178 of 178
+Arc rows in file: 18196 | DiGraph edges: 18196
+Route lies in 1 component(s)
