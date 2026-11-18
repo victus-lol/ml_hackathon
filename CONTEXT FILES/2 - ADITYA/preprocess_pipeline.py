@@ -5,6 +5,7 @@ Authoritative Spatial Preprocessing & 14-Feature Extraction Pipeline
 Demonstration on Trip 00000000 for PathSnap Evaluator Review.
 """
 
+import os
 import time
 import math
 import numpy as np
@@ -12,14 +13,21 @@ import pandas as pd
 from shapely.geometry import Point, LineString
 from shapely.strtree import STRtree
 
+# Robust directory resolution so script runs from ANY working directory
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SAMPLE_DIR = os.path.join(SCRIPT_DIR, "sample_trip_00000000")
+
 # Import the authoritative Anti-Memorization check from evaluate.py
+import sys
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 from evaluate import verify_feature_matrix_invariance
 
 def run_spatial_preprocessing(
-    track_path: str = "CONTEXT FILES/2 - ADITYA/sample_trip_00000000/00000000.track",
-    nodes_path: str = "CONTEXT FILES/2 - ADITYA/sample_trip_00000000/00000000.nodes",
-    arcs_path: str = "CONTEXT FILES/2 - ADITYA/sample_trip_00000000/00000000.arcs",
-    route_path: str = "CONTEXT FILES/2 - ADITYA/sample_trip_00000000/00000000.route",
+    track_path: str = os.path.join(SAMPLE_DIR, "00000000.track"),
+    nodes_path: str = os.path.join(SAMPLE_DIR, "00000000.nodes"),
+    arcs_path: str = os.path.join(SAMPLE_DIR, "00000000.arcs"),
+    route_path: str = os.path.join(SAMPLE_DIR, "00000000.route"),
     search_radius_m: float = 50.0,
     fallback_radius_m: float = 150.0,
 ):
