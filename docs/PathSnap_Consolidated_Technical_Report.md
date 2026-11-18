@@ -94,8 +94,8 @@ All features are verified translation-, rotation-, and scale-invariant, containi
 ![Figure 3: Road Network Graph Complexity](images/network_size.png)
 *Figure 3: Road Network Graph Complexity — Node and directed edge counts across evaluation subgraphs.*
 
-![Figure 4: Spatial Visual Audit of Sample Trip 00000000](images/trip_00000000_eda_map.png)
-*Figure 4: Spatial Visual Audit of Sample Trip 00000000 — Raw GPS points (blue markers) overlaid onto the extracted road network subgraphs.*
+![Figure 4: Multi-Layer Folium Geographical Map with Layer Control](images/real_folium_layers_map.jpg)
+*Figure 4: Mandatory Folium Geographical Map — Multi-layer interactive visualization showing: (1) Road Network Arcs [Grey], (2) Raw GPS Points [Red/Orange], (3) Removed GPS Spikes [0 outliers], (4) Kalman-Smoothed Trajectory [Blue], and (5) Ground-Truth Traversed Route [Green].*
 
 ![Figure 5: Exploratory Data Analysis Multi-Panel Summary](images/eda_and_model_summary.png)
 *Figure 5: Exploratory Data Analysis Multi-Panel Summary — (Top Left) GPS sampling delta distribution peaking at 1.0s; (Top Right) Vehicle speed profile showing German Autobahn cruising speeds and our 270 km/h calibrated filter limit; (Bottom Left) Orthogonal distance distribution ($d_{\perp}$); (Bottom Right) 5-Model evaluation arena comparing Macro F1 and Cross-Validation Accuracy.*
@@ -301,20 +301,24 @@ Both models were evaluated on the exact same data partitions (5-Fold GroupKFold 
 *Authored by Akshay & Abhiroop*
 
 Folium-based interactive map visualization is a mandatory core capability of PathSnap. Our map generation module produces multi-layer interactive maps incorporating:
-1. **Original GPS Observations**: Rendered as distinct blue circular pings along the vehicle trajectory.
+1. **Original GPS Observations**: Rendered as distinct blue/orange circular pings along the vehicle trajectory.
 2. **Relevant Road-Network Geometry**: Rendered as subtle grey vector LineStrings showing candidate arcs in the subgraph.
-3. **Reference Route (Ground Truth)**: Rendered as a dark purple polyline where available.
-4. **Predicted Reconstructed Route**: Rendered as a bold green polyline representing the continuous map-matched path.
+3. **Reference Route (Ground Truth)**: Rendered as a distinct green polyline where available.
+4. **Kalman-Smoothed Trajectory**: Rendered as an intermediate blue trajectory.
 5. **Interactive Controls & Legend**: Built-in layer control checkboxes, scale bars, and metric tooltips.
 
-### 6.1 Interactive Map Screenshots
-![Figure 12: Evaluator Test Trip 00000015 Reconstructed Route Prediction](images/evaluator_map_trip15.png)
-*Figure 12: Evaluator Test Trip 00000015 Reconstructed Route Prediction — 100.00% Route Continuity, 99.34% Route Recall.*
+### 6.1 Authentic Implementation Screenshots
+![Figure 12: Real Folium Multi-Layer Control & Reconstructed Route](images/real_folium_layers_map.jpg)
+*Figure 12: Real Folium Multi-Layer Map — Demonstrating distinct layers with active layer control checkboxes: (1) Road Network Arcs, (2) Raw GPS Points, (3) Removed GPS Spikes, (4) Kalman-Smoothed Trajectory, and (5) Ground-Truth Route.*
 
-![Figure 13: Evaluator Test Trip 00000087 Reconstructed Route Prediction](images/evaluator_map_trip87.png)
-*Figure 13: Evaluator Test Trip 00000087 Reconstructed Route Prediction — 100.00% Route Continuity, 99.44% Route Recall.*
+![Figure 13: Live Geographical Route Visualization with Waypoint Markers](images/real_ui_coastal_route.jpg)
+*Figure 13: Live Geographical Route Visualization — Continuous reconstructed trajectory (1,049 coordinates) with green start pin, red finish flag, and OpenStreetMap/CartoDB base layers.*
 
-*All interactive HTML maps are committed to the repository in `outputs/evaluator_test_maps/`.*
+![Figure 14: Real Streamlit Analysis Dashboard for Trip 00000000](images/real_ui_trip00000000.jpg)
+*Figure 14: Real Streamlit Analysis Dashboard (Trip 00000000) — Displaying 2,503 GPS points matched with a processing latency of 3,096.60 ms and status "Matched".*
+
+![Figure 15: Real Streamlit Interactive Map for Trip 00000007](images/real_ui_trip00000007.jpg)
+*Figure 15: Real Streamlit Interactive Map (Trip 00000007) — Processing 1,354 GPS points in 1,434.19 ms, highlighting interactive route start markers.*
 
 ---
 
@@ -323,16 +327,16 @@ Folium-based interactive map visualization is a mandatory core capability of Pat
 
 ### 7.1 Distributed Two-Laptop Architecture & Physical Firewall
 To mirror real-world automotive edge systems and strictly adhere to hackathon security guidelines, PathSnap is deployed across two independent physical laptops communicating over a local wireless network:
-* **Laptop 1 (FastAPI Compute Backend)**: Houses the trained LightGBM model, STRtree spatial indexer, and HMM Viterbi decoder. Exposes `/api/v1/health`, `/api/v1/trips`, and `/api/v1/match`.
-* **Laptop 2 (Evaluator UI Client)**: Runs Streamlit/Folium interface for evaluators to select trips and inspect raw GPS vs. predicted routes.
+* **Laptop 1 (FastAPI Compute Backend)**: Houses the trained LightGBM model, STRtree spatial indexer, and HMM Viterbi decoder. Exposes `/api/v1/health`, `/api/v1/trips`, and `/api/v1/match` at `http://10.1.1.56:8000`.
+* **Laptop 2 (Evaluator UI Client)**: Runs the Streamlit/Folium interface at `http://localhost:8502` for evaluators to select trips, trigger map-matching, and inspect raw GPS vs. predicted routes.
 * **Zero Ground-Truth Exposure**: Evaluator test `.route` files remain completely untouched and never enter the network wire or client interface.
 
-### 7.2 Screenshots of Working UI and Terminal API Responses
-![Figure 14: Working Streamlit Evaluation Client UI (Laptop 2)](images/working_ui_screenshot.png)
-*Figure 14: Working Streamlit Evaluation Client UI (Laptop 2) — Live interactive map-matching dashboard with trip selector, layer toggles, and real-time continuity metrics.*
+### 7.2 Screenshots of the Working UI and Successful API Responses
+![Figure 16: Live Deployed Streamlit UI on Laptop 2](images/real_ui_trip00000040.jpg)
+*Figure 16: Live Deployed Streamlit Evaluation Client (Laptop 2) — Running at `http://localhost:8502`, connected to Laptop 1 Backend at `http://10.1.1.56:8000` (Backend Online), processing Trip 00000040 (2,995 points) in 5,316.47 ms.*
 
-![Figure 15: Successful API Responses on CMD of Receiving Laptop (Laptop 1)](images/cmd_api_response_screenshot.png)
-*Figure 15: Successful API Responses on the CMD of Receiving Laptop (Laptop 1) — Showing Uvicorn/FastAPI processing `/api/v1/match` requests in ~1.55 ms/pt with 200 OK responses.*
+![Figure 17: Live API Match Response over the Wire (HTTP 200 OK)](images/real_api_response_http200.jpg)
+*Figure 17: Live API Match Response over the Wire — Direct screenshot of the UI API response inspection tab confirming HTTP 200 OK from `http://10.1.1.56:8000` with the structured JSON track coordinates payload.*
 
 ---
 
