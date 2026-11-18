@@ -9,6 +9,10 @@ This folder contains Aaryan's work-in-progress only. Keep all edits in this fold
 - `ui_client.py`: Laptop 2 Streamlit/Folium client. It fetches IDs from the API, submits the selected ID, and draws the API response.
 - `train_mlp.py`: five-fold GroupKFold MLP workflow for Akshay's prepared candidate table. Scalers are fitted inside each fold.
 - `TEAM_REVIEW_HANDOUT.md`: reviewed interfaces, data boundaries, and open decisions.
+- `AARYAN_WORK_HANDOUT.md`: summary of my assigned work, current status, and blockers.
+- `VIVA_FIRST_REVIEW.md`: first-review questions and truthful answers.
+- `REPORT_SECTION_6_DRAFT.md`: deployment report draft with measured-vs-pending fields.
+- `reference_materials/`: the five college PDFs and the available 80-trip training plus 10-trip student-test data.
 - `requirements.txt`: dependencies for this folder's code.
 
 ## Safety and data rules
@@ -53,7 +57,7 @@ The map uses blue for the raw GPS trace and red for the predicted route. Student
 The candidate CSV must be built from the 80 training trips only and contain `trip_id`, `observation_id`, `label`, and the agreed 14 numeric feature columns. Candidate IDs and raw coordinates/time are not model features. Ask Akshay for the final feature names and order before running the script.
 
 ```powershell
-python train_mlp.py path\to\training_candidates.csv --training-root 'C:\path\to\Student folder\train' --features feature_01,feature_02,feature_03,feature_04,feature_05,feature_06,feature_07,feature_08,feature_09,feature_10,feature_11,feature_12,feature_13,feature_14 --output-dir artifacts
+python train_mlp.py path\to\training_candidates.csv --training-root 'reference_materials\dataset\train' --features feature_01,feature_02,feature_03,feature_04,feature_05,feature_06,feature_07,feature_08,feature_09,feature_10,feature_11,feature_12,feature_13,feature_14 --output-dir artifacts
 ```
 
 The script checks that the feature table's trip IDs exactly match the 80 directories in `--training-root`, so a 10-trip test partition cannot accidentally be used as training input.
