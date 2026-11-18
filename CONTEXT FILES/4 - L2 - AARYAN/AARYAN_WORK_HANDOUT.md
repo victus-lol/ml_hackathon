@@ -63,7 +63,7 @@
 - Complete a cross-laptop check on a trusted shared hotspot/private network. The current Wi-Fi profile was marked Public, so no firewall exception was added and remote Laptop 2 access was not verified.
 - Train Model 5 after the feature handoff, then provide its real outputs to Aditya's scoreboard.
 - Assemble the final one-PDF report from actual team results; include the deployment section and Model 5's nine required report answers.
-- Publish this handout, viva notes, and reference bundle on the shared repository after this change is committed.
+- This handout, the viva notes, Section 6 draft, and reference bundle are committed to the Aaryan branch and available for review in draft PR #4; they are not merged to `main` yet.
 
 ## Review notes from the repo
 
