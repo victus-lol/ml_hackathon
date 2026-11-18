@@ -34,14 +34,13 @@ def verify_feature_matrix_invariance(X: pd.DataFrame) -> None:
         )
 
 def find_trip_00000000_dir() -> str:
-    """Dynamically locates sample trip 00000000 across possible repository locations."""
+    """Dynamically locates sample trip 00000000 across local and repository locations."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
-        os.path.join(script_dir, "..", "2 - ADITYA", "sample_trip_00000000"),
-        os.path.join(script_dir, "..", "..", "CONTEXT FILES", "2 - ADITYA", "sample_trip_00000000"),
         os.path.join(script_dir, "sample_trip_00000000"),
         os.path.join(script_dir, "..", "..", "Student folder", "Student folder", "student_test", "00000000"),
         os.path.join(script_dir, "..", "..", "Student folder", "student_test", "00000000"),
+        os.path.join(script_dir, "..", "..", "data", "sample_trip_00000000"),
     ]
     for c in candidates:
         norm = os.path.abspath(c)
@@ -49,9 +48,115 @@ def find_trip_00000000_dir() -> str:
             return norm
     raise FileNotFoundError("Could not find sample trip 00000000 files (.track, .nodes, .arcs).")
 
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Computes great-circle distance between two GPS coordinates in meters."""
+    R = 6371000.0
+    phi1, phi2 = np.radians(lat1), np.radians(lat2)
+    dphi = np.radians(lat2 - lat1)
+    dlam = np.radians(lon2 - lon1)
+    a = np.sin(dphi / 2.0) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(dlam / 2.0) ** 2
+    return 2.0 * R * np.arcsin(np.sqrt(a))
+
+def filter_gps_noise(track: pd.DataFrame, max_speed_mps: float = 45.0) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Detects and filters GPS measurement noise, teleportation spikes, and non-monotonic timestamps.
+    Returns:
+        clean_track: DataFrame of retained, valid GPS observations.
+        dropped_df: DataFrame logging dropped records with exact failure reasons and calculated speeds.
+    """
+    initial_count = len(track)
+    dropped_records = []
+    valid_indices = [0]  # Keep first point as anchor
+
+    for i in range(1, len(track)):
+        prev_idx = valid_indices[-1]
+        dt = track["t"].iloc[i] - track["t"].iloc[prev_idx]
+
+        # 1. Non-positive or duplicate timestamp
+        if dt <= 0:
+            dropped_records.append({
+                "point_index": i,
+                "timestamp": track["t"].iloc[i],
+                "lat": track["lat"].iloc[i],
+                "lon": track["lon"].iloc[i],
+                "implied_speed_kmh": 0.0,
+                "drop_reason": f"Duplicate / Non-monotonic timestamp (dt = {dt}s <= 0)"
+            })
+            continue
+
+        # 2. Implied speed and teleportation spike check
+        dist = haversine_distance(
+            track["lat"].iloc[prev_idx], track["lon"].iloc[prev_idx],
+            track["lat"].iloc[i], track["lon"].iloc[i]
+        )
+        speed = dist / dt
+
+        if speed > max_speed_mps:
+            dropped_records.append({
+                "point_index": i,
+                "timestamp": track["t"].iloc[i],
+                "lat": track["lat"].iloc[i],
+                "lon": track["lon"].iloc[i],
+                "implied_speed_kmh": round(speed * 3.6, 2),
+                "drop_reason": f"GPS Multipath Teleportation Spike (v = {speed*3.6:.1f} km/h > {max_speed_mps*3.6:.0f} km/h threshold)"
+            })
+            continue
+
+        valid_indices.append(i)
+
+    clean_track = track.iloc[valid_indices].reset_index(drop=True)
+    dropped_df = pd.DataFrame(dropped_records)
+
+    print(f"\n[Step 1.1: GPS Noise & Spike Filtering Audit]")
+    print(f"  • Raw GPS Observations    : {initial_count:,}")
+    print(f"  • Dropped Noisy Spikes    : {len(dropped_df):,}")
+    print(f"  • Clean Observations Kept : {len(clean_track):,} ({len(clean_track)/initial_count*100:.2f}%)")
+
+    return clean_track, dropped_df
+
+def apply_kalman_filter(track_m: np.ndarray, dt: float = 1.0) -> np.ndarray:
+    """
+    2D Constant-Velocity Kalman Filter to smooth planar GPS coordinates (x, y).
+    State vector: [x, y, vx, vy]^T
+    """
+    N = len(track_m)
+    smoothed = np.zeros_like(track_m)
+    
+    # State: [px, py, vx, vy]
+    x = np.array([track_m[0, 0], track_m[0, 1], 0.0, 0.0])
+    P = np.eye(4) * 5.0  # Initial state covariance
+    F = np.array([
+        [1.0, 0.0, dt,  0.0],
+        [0.0, 1.0, 0.0, dt ],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0]
+    ])
+    H = np.array([
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0]
+    ])
+    Q = np.eye(4) * 0.5   # Process noise covariance
+    R = np.eye(2) * 4.0   # Measurement noise covariance (~2m GPS error)
+
+    for i in range(N):
+        # Predict
+        x = F @ x
+        P = F @ P @ F.T + Q
+        # Update
+        z = track_m[i]
+        y = z - H @ x
+        S = H @ P @ H.T + R
+        K = P @ H.T @ np.linalg.inv(S)
+        x = x + K @ y
+        P = (np.eye(4) - K @ H) @ P
+        smoothed[i] = x[:2]
+
+    return smoothed
+
 def run_spatial_preprocessing(
     search_radius_m: float = 50.0,
     fallback_radius_m: float = 150.0,
+    use_kalman: bool = True,
 ):
     print("=" * 70)
     print("   PATHSNAP SPATIAL PREPROCESSING & CANDIDATE EXTRACTION PIPELINE")
@@ -71,9 +176,19 @@ def run_spatial_preprocessing(
     nodes = pd.read_csv(nodes_path, sep=r"\s+", header=None, names=["lon", "lat"])
     arcs  = pd.read_csv(arcs_path, sep=r"\s+", header=None, names=["u", "v"])
     
-    print(f"  -> GPS Observations: {len(track):,} points")
+    print(f"  -> Raw GPS Observations: {len(track):,} points")
     print(f"  -> Road Junction Nodes: {len(nodes):,} nodes")
     print(f"  -> Directed Road Arcs: {len(arcs):,} arcs")
+
+    # Step 1.1: GPS Measurement Noise, Outlier & Teleportation Spike Detection
+    track, dropped_df = filter_gps_noise(track, max_speed_mps=45.0)
+    
+    # Save dropped records audit table
+    outputs_dir = os.path.abspath(os.path.join(data_dir, "..", "..", "..", "outputs"))
+    os.makedirs(outputs_dir, exist_ok=True)
+    audit_csv = os.path.join(outputs_dir, "gps_noise_audit_trip_00000000.csv")
+    dropped_df.to_csv(audit_csv, index=False)
+    print(f"  -> Exported Dropped Records Audit to:\n     {audit_csv}")
 
     # 2. Planar Equirectangular Projection (meters)
     print("\n[Step 2] Projecting Spherical WGS84 to Planar Metric Coordinates (meters)...")
@@ -91,6 +206,13 @@ def run_spatial_preprocessing(
     track_lons = np.radians(track["lon"].values)
     track_x = R * (track_lons - lon0) * math.cos(lat0)
     track_y = R * (track_lats - lat0)
+
+    if use_kalman:
+        print("\n[Step 2.1] Applying 2D Constant-Velocity Kalman Filter to Smooth Trajectory...")
+        track_planar = np.column_stack([track_x, track_y])
+        smoothed_planar = apply_kalman_filter(track_planar)
+        track_x, track_y = smoothed_planar[:, 0], smoothed_planar[:, 1]
+        print(f"  -> Trajectory smoothed across {len(track_x):,} points (measurement noise variance reduced).")
 
     # 3. Build Spatial Index over Road LineStrings
     print(f"\n[Step 3] Building shapely.strtree.STRtree over {len(arcs):,} road LineStrings...")

@@ -1,0 +1,12 @@
+point_index,timestamp,lat,lon,implied_speed_kmh,drop_reason
+423,424.0,56.222975,54.834211,201.82,GPS Multipath Teleportation Spike (v = 201.8 km/h > 162 km/h threshold)
+443,444.0,56.221836,54.825905,168.88,GPS Multipath Teleportation Spike (v = 168.9 km/h > 162 km/h threshold)
+458,459.0,56.220563,54.819004,178.67,GPS Multipath Teleportation Spike (v = 178.7 km/h > 162 km/h threshold)
+626,627.0,56.207354,54.749023,170.14,GPS Multipath Teleportation Spike (v = 170.1 km/h > 162 km/h threshold)
+852,853.0,56.193903,54.666006,165.84,GPS Multipath Teleportation Spike (v = 165.8 km/h > 162 km/h threshold)
+879,880.0,56.190949,54.65481,177.73,GPS Multipath Teleportation Spike (v = 177.7 km/h > 162 km/h threshold)
+1061,1062.0,56.184442,54.586576,229.35,GPS Multipath Teleportation Spike (v = 229.3 km/h > 162 km/h threshold)
+1130,1131.0,56.187132,54.554538,162.57,GPS Multipath Teleportation Spike (v = 162.6 km/h > 162 km/h threshold)
+1200,1201.0,56.18323,54.529325,162.19,GPS Multipath Teleportation Spike (v = 162.2 km/h > 162 km/h threshold)
+1484,1485.0,56.15652,54.42385,178.51,GPS Multipath Teleportation Spike (v = 178.5 km/h > 162 km/h threshold)
+1523,1524.0,56.151998,54.408537,165.75,GPS Multipath Teleportation Spike (v = 165.7 km/h > 162 km/h threshold)
