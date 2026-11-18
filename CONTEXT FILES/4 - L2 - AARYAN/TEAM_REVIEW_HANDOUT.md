@@ -12,7 +12,8 @@ This note proposes the integration contract for Aaryan's work. Please comment on
 - The evaluator-facing UI and Folium display.
 - The Laptop 2 to Laptop 1 connection and demo instructions.
 - Model 5 (MLP), using the feature schema and preprocessing agreed with Akshay and Aditya.
-- My report contribution on deployment, interface behavior, and measured system performance.
+- My nine-question report answers for Model 5, Report Section 6, and assembly of the single consolidated six-section PDF from owner-reviewed content and real results.
+- The root README run/deployment instructions, dependency list, and the repo's required top-level structure (`data/`, `models/`, `api/`, `ui/`, and `artifacts/`), coordinated with Aditya as required by the repo's code-governance rules. Keep secrets out of the public repo.
 
 Per the workspace rule, my work in `CONTEXT FILES` stays inside `4 - L2 - AARYAN`. This handout does not authorize edits to another teammate's folder. Please agree where final, runnable deployment code should live before that work is started.
 
@@ -27,7 +28,7 @@ Per the workspace rule, my work in `CONTEXT FILES` stays inside `4 - L2 - AARYAN
 
 ## Proposed request and response
 
-**Proposed UI request:** `POST /api/v1/match` with a JSON body containing `trip_id` only. The API loads that trip's permitted raw `.track`, `.nodes`, and `.arcs` from the server-side evaluator data directory, runs candidate generation, the selected classifier, and HMM/Viterbi, then returns the result. The UI renders the response and does not compute or substitute predictions.
+**Proposed UI request:** `POST /api/v1/match` must include the selected `trip_id`. The simplest proposed body contains `trip_id` only; the API then loads that trip's permitted raw `.track`, `.nodes`, and `.arcs` from the server side, runs candidate generation, the selected classifier, and HMM/Viterbi, then returns the result. The UI renders the response and does not compute or substitute predictions.
 
 **Proposed response:**
 
@@ -37,9 +38,9 @@ Per the workspace rule, my work in `CONTEXT FILES` stays inside `4 - L2 - AARYAN
 - API-computed metrics that are allowed for the evaluator view
 - inference latency and a clear error if matching fails
 
-The response must never include ground-truth arc IDs, evaluator `.route` contents, or label-derived overlays. A separate health endpoint can report whether the server and model are ready. A trip-list endpoint may return evaluator trip IDs only, if the UI needs it.
+The response must never include ground-truth arc IDs, evaluator `.route` contents, or label-derived overlays. Required endpoints from the Aaryan workspace README are `GET /api/v1/health` (server/model readiness and memory usage), `GET /api/v1/trips` (available trip IDs only), and `POST /api/v1/match`. Any server-computed accuracy numbers must not expose the underlying labels or reference route.
 
-**Please confirm the raw-data location.** This proposal assumes Laptop 1 can load evaluator `.track`, `.nodes`, and `.arcs` by `trip_id`. If the evaluator supplies those files only on Laptop 2, agree on a compliant transfer contract before implementation; the payload must still exclude `.route` and labels. The UI must send the selected `trip_id` and render the API's result.
+**Please confirm the raw-data location and request schema.** The Aaryan workspace README and both master plans describe Laptop 2 sending raw `.track`, `.nodes`, and `.arcs` arrays, while the original project brief requires the UI to send a `trip_id` to the API and says model, decoder, network, and ground truth are server-side. The global rules also prohibit any `.route` ground-truth data from crossing the wire. Agree whether Laptop 1 will load raw evaluator files by ID or whether Laptop 2 will send only raw GPS/network arrays together with the required trip ID. In either case, `.route` and label-derived data must never cross the wire, enter the prediction path, or reach the UI. Do not implement the contract until the data location and exact schema are agreed.
 
 ## Interfaces to agree before integration
 
@@ -49,6 +50,7 @@ Please confirm these with the respective owner so I can connect modules without 
 - **Aditya:** model artifact format, feature order, `predict_proba` input/output shape, and how the MLP participates in the same comparison.
 - **Abhiroop:** decoder function inputs and outputs, candidate/emission representation, network object or graph input, behavior for no candidates and disconnected transitions, and the meaning of the returned continuity metric.
 - **All:** which server-side metrics may be returned to the evaluator UI, and which are for offline student-test analysis only.
+- **All:** whether the agreed API contract can meet the repo's stated under-85-ms latency goal on the actual two laptops; treat this as a target until measured.
 
 ## Demo checklist
 
@@ -57,7 +59,7 @@ Please confirm these with the respective owner so I can connect modules without 
 - Selecting each evaluator trip ID sends a request to the API and displays that response.
 - The API loads the matching trip network; no global or cross-trip ID assumption is made.
 - Evaluator `.route` labels are absent from UI code, request/response schemas, and inference inputs.
-- Raw GPS and predicted route are distinguishable on the Folium map, with a legend and layer control.
+- Raw GPS is blue and the predicted route is red on the Folium map, with a legend and layer control. Evaluator maps show no ground-truth layer. Any student-test reference overlay is offline-only and clearly separated from the live evaluator UI.
 - API request logs are visible during the demonstration.
 - Errors are shown clearly; the UI does not fall back to cached or fabricated predictions.
 - Latency and system metrics are measured and recorded during an actual run before they are written in the report.
@@ -66,7 +68,9 @@ Please confirm these with the respective owner so I can connect modules without 
 
 - It specifies equirectangular projection in one section, which conflicts with the required UTM Zone 32N distance calculations above.
 - Phrases such as “zero candidate miss guarantee,” candidate miss-rate figures, continuity thresholds, latency budgets, and expected HMM improvement are hypotheses or targets until measured; they must not be presented as achieved results without evidence.
-- The master plan proposes transmitting raw arrays from Laptop 2, while this proposal follows the requirement that the UI send `trip_id` to the API. Please resolve where raw evaluator files will be available to the API.
+- The root master plan, Aditya's master plan, and Aaryan's README describe sending raw arrays from Laptop 2; the original project brief requires the UI to send `trip_id` to the API. The global rules additionally prohibit `.route` data crossing the wire. Agree the data location and exact request schema before implementation; include `trip_id` and exclude all route labels in every option.
+- Aaryan's README specifies health/model/memory status, a test-trip list, the three map layers and colors, student-test overlays as offline diagnostics only, Model 5's nine report questions, a two-laptop connection, and an under-85-ms latency goal. These are included above as requirements or unmeasured targets.
+- The global rules allow local UTM or geodesic distance calculations, while the original project brief specifically requires UTM Zone 32N (EPSG:32632). This proposal preserves the stricter original requirement.
 - Proposed feature restrictions should be documented as model-design choices and checked for validity; they should not be described as event rules unless the official handout says so.
 
 ## Team review
