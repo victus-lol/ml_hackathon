@@ -1,0 +1,35 @@
+{
+  "selected_model": "HistGradientBoosting",
+  "untuned_cv_macro_f1": 0.8546472107481048,
+  "tuned_cv_macro_f1": 0.8567242498018055,
+  "untuned_student_test": {
+    "candidate_macro_f1": 0.8783755906392202,
+    "candidate_accuracy": 0.9367525280187037,
+    "top1_accuracy": 0.8233298538622129,
+    "precision": 0.8066713521111532,
+    "recall": 0.7819410963211404,
+    "log_loss": 0.15894025419039773,
+    "candidate_miss_rate": 0.00407098121085595,
+    "observation_count": 19160,
+    "observations_with_candidate_truth": 19082,
+    "candidate_row_count": 122329
+  },
+  "tuned_student_test": {
+    "candidate_macro_f1": 0.8784796861442656,
+    "candidate_accuracy": 0.9370795150781908,
+    "top1_accuracy": 0.8189979123173278,
+    "precision": 0.8110825728181867,
+    "recall": 0.7778010690703281,
+    "log_loss": 0.15619238876183303,
+    "candidate_miss_rate": 0.00407098121085595,
+    "observation_count": 19160,
+    "observations_with_candidate_truth": 19082,
+    "candidate_row_count": 122329
+  },
+  "untuned_fit_seconds": 2.5079516999976477,
+  "tuned_fit_seconds": 5.533585900004255,
+  "untuned_inference_seconds": 0.19916079999529757,
+  "tuned_inference_seconds": 0.5053822999907425,
+  "tuning_trial_count": 25,
+  "same_partitions": true
+}

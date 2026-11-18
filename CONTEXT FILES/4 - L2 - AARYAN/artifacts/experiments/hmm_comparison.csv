@@ -1,0 +1,2 @@
+model,classifier_top1_mean,viterbi_top1_mean,classifier_continuity_mean,viterbi_continuity_mean,bridged_continuity_mean,viterbi_sequence_exact_fraction
+HistGradientBoosting,0.840886558449251,0.5740707265375955,0.2550306392092366,0.6290498471318557,0.9996026944826143,0.0

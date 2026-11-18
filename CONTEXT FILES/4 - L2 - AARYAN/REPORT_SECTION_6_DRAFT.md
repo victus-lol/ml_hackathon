@@ -1,64 +1,48 @@
-# Report Section 6 — Two-Laptop Deployment (Draft)
+# Report Section 6 — Distributed Deployment and Evaluation
 
-**Status:** Implementation draft; final performance and demonstration claims await the team matcher, evaluator data, and a cross-laptop run.
+**Status:** Implementation and local development artifacts are committed. The live two-laptop check and organizer evaluator run remain pending.
 
-## Proposed architecture
+## Distributed design
 
 ```mermaid
 flowchart LR
     UI["Laptop 2: Streamlit + Folium"] -->|"GET /api/v1/trips"| API["Laptop 1: FastAPI"]
     UI -->|"POST /api/v1/match: trip_id"| API
-    API --> STORE["Configured trip inputs: .track, .nodes, .arcs"]
-    API --> ENGINE["Team matcher: candidates, classifier, HMM/Viterbi"]
-    ENGINE --> API
-    API -->|"predicted route geometry + approved metrics"| UI
-    UI --> MAP["Blue raw GPS + red predicted route"]
+    API --> INPUTS["Server-side .track, .nodes, .arcs"]
+    API --> FEATURES["Candidate features"]
+    FEATURES --> MODEL["HistGradientBoosting model"]
+    MODEL --> HMM["Viterbi decoder + route bridging"]
+    HMM --> API
+    API -->|"raw GPS + predicted geometry"| UI
+    UI --> MAP["Blue GPS + red prediction"]
 ```
 
-The API's current proposal sends the selected trip ID. Laptop 1 loads the matching raw GPS and network files, calls the team matcher, and returns the result for Laptop 2 to display. The repo also contains descriptions of a raw-array request. The team must resolve the location of evaluator inputs and the exact request schema before final integration. Under every option, ground-truth labels must stay out of the network payload, prediction path, and UI.
+The UI sends a trip ID. Laptop 1 reads the selected trip's raw inputs, creates candidate features, scores them with the saved classifier, decodes a path, and returns the raw GPS and predicted route geometry. The API inference call uses `load_trip(..., include_route=False)`. Reference labels are not read by inference or returned to the client.
 
-## Data and display boundaries
+## Development results
 
-- Each trip uses its own node and arc files. The server must not assume IDs are shared across trips.
-- Coordinates are longitude then latitude. Metric calculations in the matching pipeline must use UTM Zone 32N (EPSG:32632).
-- The live UI shows raw GPS in blue and the predicted route in red. It does not load trip files locally or display a reference-route layer.
-- Student-test reference files are for offline development only. They are not configured as live evaluator inputs.
-- The API response exposes only predicted route fields and an allowlist of aggregate numeric metrics.
+These values come from saved local experiment artifacts and use the 80-trip training partition plus the 10-trip student-test partition. They are not organizer-evaluator results and have not been rerun after committing the integration.
 
-## Current implementation and observed state
+| Metric | Result | Interpretation |
+|---|---:|---|
+| Untuned HistGradientBoosting five-fold CV candidate macro F1 | 0.8546 | GroupKFold by trip on training data |
+| Tuned HistGradientBoosting five-fold CV candidate macro F1 | 0.8567 | 25 Optuna trials; same training folds |
+| Tuned model student-test candidate macro F1 | 0.8785 | Offline candidate classification on student-test |
+| Tuned model student-test top-1 accuracy | 0.8190 | Candidate classifier top-1 selection |
+| Bridged route continuity | 0.9996 | Offline comparison against student-test reference routes |
 
-| Component | Current state |
-|---|---|
-| FastAPI health endpoint | Running locally and returned HTTP 200. |
-| Health readiness | `ready: false`; matcher module is not configured. |
-| Evaluator data directory | Not configured; zero evaluator trips available to the API. |
-| Trip listing | Implemented as directory discovery; no IDs are hardcoded. |
-| Match endpoint | Implemented with a matcher adapter; returns 503 until the real engine is ready. |
-| Folium UI | Implemented, but not yet run against the team matcher or evaluator data. |
-| MLP | Training workflow is implemented; no feature table or frozen schema has been handed off, so no model has been trained. |
-| Two-laptop connection | Not verified. The current Wi-Fi profile is Public; no firewall exception was added. |
+Candidate classification scores are not final decoded route accuracy. Route continuity was measured offline against student-test reference routes, which are used only for development evaluation.
 
-## Performance results
+## Data boundary and readiness
 
-No end-to-end inference latency or per-stage latency has been measured. The repo's under-85-ms figure is a target, not a result. Fill this table only from a real run on the final two-laptop setup:
+- Laptop 1 reads `.track`, `.nodes`, and `.arcs`; its inference path does not open `.route`.
+- Laptop 2 sends `trip_id` only and renders the API response. It does not load trip files or reference labels.
+- A local preview can use the checked-in `student_test` raw inputs. The health endpoint correctly keeps `ready: false` for `PATHSNAP_DATA_KIND=student_test`.
+- `ready: true` requires a loaded model, `PATHSNAP_DATA_KIND=evaluator`, and exactly 10 organizer-provided evaluator trips.
+- Student-test data must not be described as the hidden evaluator partition.
 
-| Measurement | Result |
-|---|---|
-| Feature/candidate generation | Not measured |
-| Classifier inference | Not measured |
-| HMM/Viterbi decoding | Not measured |
-| API serialization and network time | Not measured |
-| End-to-end latency per trip | Not measured |
-| Successful evaluator trips out of 10 | Not measured |
+## Performance and remaining verification
 
-## Failure handling and remaining checks
+No end-to-end two-laptop latency is claimed. The local saved classifier inference timing is not the same as complete candidate generation, decoding, serialization, and network time. The ZIP's 1.40 ms latency and 100% continuity claims are not used as measurements.
 
-- Missing matcher: API returns HTTP 503 and does not fabricate a route.
-- Missing trip files: API returns HTTP 404; malformed columns or invalid coordinates return HTTP 422.
-- Missing evaluator directory or fewer than 10 evaluator trips: health remains `ready: false`.
-- Unreachable API: UI shows the request error and does not fall back to cached output.
-- Before final use: configure the real matcher and evaluator inputs on Laptop 1; verify requests from Laptop 2 over a trusted shared network; run every evaluator trip; record actual latency and allowed server metrics; capture the Folium and API screenshots.
-
-## Evidence to add after integration
-
-Add the actual health response, a live Laptop 2 request, the Folium map screenshot, API log excerpt, and measured latency table. Do not add evaluator reference routes or fabricate results.
+After committing, verify the API health and match endpoints locally, run the UI against Laptop 1, confirm the red predicted path, and then repeat across two laptops on a shared trusted network. Record actual API timing and only the metrics permitted by the evaluator contract. The organizer evaluator partition is still needed for final evaluator results.

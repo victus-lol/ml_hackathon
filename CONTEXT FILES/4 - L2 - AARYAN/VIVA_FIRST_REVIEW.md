@@ -1,68 +1,45 @@
-# PathSnap — Aaryan First-Review Viva Notes
+# PathSnap — Aaryan Viva Notes
 
-Use these answers as a speaking guide, not as claims to memorize. Be explicit about what is already running and what still depends on the team handoffs.
+Use these notes as a speaking guide. Separate the local development preview from the not-yet-tested organizer evaluator demo.
 
-## 20-second introduction
+## Short introduction
 
-“PathSnap matches noisy GPS observations to directed road segments and reconstructs a continuous route. My part is the FastAPI service, Laptop 2 client and Folium view, and Model 5. The API health service is running, but the full matcher is not integrated yet, so I’m reporting that honestly rather than showing a fabricated prediction.”
+“My part is the distributed FastAPI and Streamlit/Folium flow, the candidate feature pipeline, and the model/decoder integration. Laptop 1 reads trip inputs and predicts a route; Laptop 2 displays the API response. I have committed the code and model artifacts. The two-laptop setup still needs testing.”
 
-## Questions you may get
+## What does the API do?
 
-### What does your API do?
+“Laptop 1 exposes `/api/v1/health`, `/api/v1/trips`, and `/api/v1/match`. Trip IDs are discovered from the configured data folder. A match request contains only `trip_id`; the server reads the raw track and road network, creates candidates, scores them, decodes the path, and returns predicted geometry.”
 
-“Laptop 1 exposes `/api/v1/health`, `/api/v1/trips`, and `/api/v1/match`. The trip list is discovered from the configured data directory. A match request includes a `trip_id`; the server loads that trip's permitted GPS and network files and passes them to the team matcher.”
+## Is the model pipeline integrated?
 
-### Is the model pipeline ready right now?
+“The local runtime includes a saved HistGradientBoosting model and the Viterbi decoder. The checked-in student-test data can be used for a development preview. Health remains `ready: false` for that partition. Evaluator readiness requires the organizer's 10 trips, the model to load, and `PATHSNAP_DATA_KIND=evaluator`.”
 
-“The API process is healthy and its health endpoint returns HTTP 200. It currently reports `ready: false` because the matcher module and evaluator data are not configured. I have not claimed that HMM inference is live.”
+## How does the UI connect to the server?
 
-### What does `ready` mean?
+“Laptop 2 fetches trip IDs, posts the selected ID, and draws blue GPS observations and the red predicted route from the response. It has no local trip-file loading or reference-route layer.”
 
-“It is true only when a matcher reports that its model and decoder are loaded, the configured data directory exists, and all 10 evaluator trips are available. A healthy process alone does not mean the model is ready.”
+## How do you prevent ground-truth leakage?
 
-### How does the UI connect to the server?
+“The API prediction path calls `load_trip(..., include_route=False)`. It reads `.track`, `.nodes`, and `.arcs`; it does not read `.route`. The client sends only the trip ID and receives raw GPS and predicted geometry.”
 
-“The Laptop 2 UI fetches trip IDs from the API, posts the selected ID to `/api/v1/match`, and renders the returned route. It does not read local trip files or cache predictions.”
+## What did the model evaluation show?
 
-### How do you prevent ground-truth leakage?
+“On the saved development runs, HistGradientBoosting reached 0.8546 candidate macro F1 in five-fold GroupKFold on the 80 training trips. Tuning improved CV candidate macro F1 to 0.8567. The tuned model's student-test candidate macro F1 was 0.8785. These are development candidate metrics, not hidden evaluator results or decoded route accuracy.”
 
-“The live API reads only raw track, nodes, and arcs for prediction. The UI receives raw GPS, the predicted route, and approved server-computed metrics. Reference labels are not in the request or response and are not used by the client.”
+## What about route continuity and latency?
 
-### What appears on your map?
+“The offline student-test decoder comparison recorded 0.9996 bridged continuity. This uses the student-test reference routes and is development evidence only. I have no verified two-laptop end-to-end latency yet; I will measure that during testing.”
 
-“The Folium view draws the raw GPS trace in blue and the predicted route in red, with a layer control. The live evaluator view has no reference-route layer.”
+## What remains to verify?
 
-### How will you train Model 5?
+“After committing, I need to run the API and UI locally, check the map output, and then test Laptop 2 against Laptop 1 over the shared network. The organizer evaluator data is still required for final readiness and evaluator results.”
 
-“I prepared an MLP trainer for the 14 agreed numeric candidate features. It uses five-fold GroupKFold grouped by trip ID, and the StandardScaler is fit inside each training fold. It checks that the input table matches the 80 training-trip directories. I’m waiting for Akshay's final feature names and candidate table before running it.”
+## Explain GroupKFold
 
-### Why GroupKFold by trip?
+“Observations from the same trip are related. GroupKFold keeps all rows from a trip in one fold, so validation trips are unseen during that fold's training.”
 
-“Rows from one trip are related. GroupKFold keeps every observation from a trip together, so validation trips are unseen during that fold's training.”
+## Safe status sentence
 
-### What are your model results?
+“The model-backed API and client are committed. I have not yet tested the committed version or the two-laptop connection; the included student-test preview is development-only, and organizer evaluator readiness is pending.”
 
-“I don’t have MLP results yet because the prepared candidate table and frozen feature schema have not been handed over. I will report the actual out-of-fold results after the run; I won’t estimate or invent metrics.”
-
-### What remains before the two-laptop demo?
-
-“We need the real feature/model/decoder integration, the evaluator inputs on Laptop 1, and a trusted shared local network. I verified health locally, but have not verified a request from the second laptop.”
-
-### Who owns the HMM and candidate features?
-
-“Akshay owns spatial candidates and features; Abhiroop owns the graph and HMM/Viterbi; Aditya owns the cross-validation scoreboard and tuning. My API uses an adapter contract so those pieces can be connected after their interfaces are agreed.”
-
-## Recorded sample-trip audit (not model performance)
-
-The repo's saved graph audit for sample trip `00000000` reports 8,542 nodes, 18,196 directed arcs, 100 weakly connected components, a largest component of 7,466 nodes, and 0 isolated nodes. It reports that the sample reference route's 179 arcs chain for 178 of 178 transitions and lie in one component. These are graph/reference-file audit values for that one sample trip; they are not full-dataset results and do not demonstrate model accuracy.
-
-## Safe one-sentence status for evaluators
-
-“Laptop 1's FastAPI health service is running; the model and decoder are not integrated yet, so it reports healthy but not ready. Once they are integrated, Laptop 2 will request a route and display the API result without receiving ground-truth labels.”
-
-## Before presenting
-
-- Keep the health endpoint visible and say `ready: false` accurately.
-- Do not say the two-laptop connection has passed; only the local endpoint was verified.
-- Do not claim MLP scores, miss rate, route continuity, or latency results that have not been produced by a real run.
-- Disclose AI assistance according to the event policy, and explain the API, fold split, feature inputs, and data boundaries in your own words.
+Disclose AI assistance according to the event policy and be ready to explain the feature columns, model, data split, and API boundary.
