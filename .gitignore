@@ -1,0 +1,16 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.bak
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Intermediate datasets (>100MB)
+data/
+*.parquet
+
+# Offline package distribution zips
+OFFLINE_PACKAGES/
+*.zip
