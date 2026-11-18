@@ -1,7 +1,5 @@
 """
-CONTEXT FILES/1 - AKSHAY/extract_all_training_features.py
----------------------------------------------------------
-Authoritative Batch Extraction Engine across all 80 Training Trips
+Batch feature extraction across the training trips
 - shapely.strtree.STRtree 2D candidate discovery (50m radius + 150m fallback)
 - Monotonic forward route projection to prevent intersection label contamination
 - 14 invariant physical geometric & kinematic features

@@ -1,7 +1,5 @@
 """
-CONTEXT FILES/1 - AKSHAY/train_akshay_models.py
-----------------------------------------------
-Akshay's Machine Learning Models Suite:
+Training and evaluation for the Logistic Regression and distance-weighted k-NN baseline models
 - Model 1: Regularized Logistic Regression (L2 Penalty with Balanced Class Weights)
 - Model 2: Distance-Weighted k-Nearest Neighbors (k=15 with Prototype KD-Tree)
 Evaluates under 5-Fold GroupKFold strictly grouped by trip_id.

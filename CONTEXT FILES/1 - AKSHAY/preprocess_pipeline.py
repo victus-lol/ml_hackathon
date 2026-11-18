@@ -1,8 +1,5 @@
 """
-CONTEXT FILES/1 - AKSHAY/preprocess_pipeline.py
-----------------------------------------------
-Authoritative Spatial Preprocessing & 14-Feature Extraction Pipeline
-Owner: Akshay (Spatial Data Engineering & Preprocessing)
+Spatial preprocessing and 14-feature extraction pipeline
 
 Features:
 - Planar metric equirectangular coordinate projection (meters)

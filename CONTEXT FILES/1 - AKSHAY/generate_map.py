@@ -1,7 +1,5 @@
 """
-CONTEXT FILES/1 - AKSHAY/generate_map.py
-----------------------------------------
-Interactive Multi-Layer Folium Visualization for Exploratory Data Analysis
+Interactive multi-layer Folium visualization for exploratory data analysis
 Displays:
 1. Road Network Arcs (Grey)
 2. Raw GPS Observations (Red Circles)

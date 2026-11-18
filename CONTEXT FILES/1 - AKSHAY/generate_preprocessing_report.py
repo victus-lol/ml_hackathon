@@ -1,10 +1,5 @@
 """
-CONTEXT FILES/1 - AKSHAY/generate_preprocessing_report.py
---------------------------------------------------------
-Generates formal Report Section 1 (Exploratory Data Analysis) and
-Section 2 (Spatial Indexing & 14-Feature Preprocessing) for PathSnap.
-Outputs:
-- CONTEXT FILES/1 - AKSHAY/REPORT_SECTIONS_1_AND_2.md
+Generates the exploratory data analysis and spatial preprocessing report
 """
 
 import os
@@ -247,7 +242,7 @@ To eliminate ID-memorization traps, all arbitrary identifiers (`trip_id`, `arc_i
 2. **Anti-Memorization Compliance**: All 14 columns pass the strict `verify_feature_matrix_invariance` assertion guard. Models learn generalizable vehicle physics, not local graph IDs.
 
 ---
-*Report generated automatically by `CONTEXT FILES/1 - AKSHAY/generate_preprocessing_report.py` in {time.time() - t0:.2f} seconds.*
+*Report generated automatically by `generate_preprocessing_report.py` in {time.time() - t0:.2f} seconds.*
 """
 
     out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "REPORT_SECTIONS_1_AND_2.md")
