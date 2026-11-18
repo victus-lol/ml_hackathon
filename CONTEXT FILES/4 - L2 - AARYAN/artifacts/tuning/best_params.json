@@ -1,0 +1,19 @@
+{
+  "selected_model": "HistGradientBoosting",
+  "best_value_cv_macro_f1": 0.8567242498018055,
+  "best_params": {
+    "max_iter": 180,
+    "learning_rate": 0.05352781935713675,
+    "max_leaf_nodes": 47,
+    "l2_regularization": 0.07913788479320795
+  },
+  "trial_count": 25,
+  "objective": "mean candidate-row macro F1 over five GroupKFold folds grouped by trip_id",
+  "seed": 42,
+  "search_ranges": {
+    "max_iter": "60..200 step 20",
+    "learning_rate": "log-uniform 0.025..0.2",
+    "max_leaf_nodes": "15..63 step 8",
+    "l2_regularization": "log-uniform 1e-4..2"
+  }
+}

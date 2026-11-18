@@ -1,0 +1,59 @@
+{
+  "partitions": {
+    "student_test": {
+      "trip_count": 10,
+      "total_observations": 19160,
+      "observations_per_trip": {
+        "min": 262,
+        "median": 1420.0,
+        "max": 3958
+      },
+      "total_nodes": 90689,
+      "total_arcs": 185041,
+      "total_raw_bytes": 4368591,
+      "missing_track_values": 0,
+      "trips_with_nonpositive_time_gaps": 0,
+      "gaps_over_2s": 138,
+      "max_gap_s": 210.0,
+      "weak_components_median": 11.0,
+      "isolated_nodes_total": 0
+    },
+    "train": {
+      "trip_count": 80,
+      "total_observations": 208417,
+      "observations_per_trip": {
+        "min": 361,
+        "median": 1529.0,
+        "max": 19313
+      },
+      "total_nodes": 1933485,
+      "total_arcs": 3876904,
+      "total_raw_bytes": 89737452,
+      "missing_track_values": 0,
+      "trips_with_nonpositive_time_gaps": 0,
+      "gaps_over_2s": 2937,
+      "max_gap_s": 153064.0,
+      "weak_components_median": 20.0,
+      "isolated_nodes_total": 0
+    }
+  },
+  "coordinate_system": "WGS84 input; select a local UTM zone and hemisphere per trip",
+  "raw_columns": {
+    "track": [
+      "longitude",
+      "latitude",
+      "timestamp_s"
+    ],
+    "nodes": [
+      "longitude",
+      "latitude"
+    ],
+    "arcs": [
+      "from_node_id",
+      "to_node_id"
+    ],
+    "route": [
+      "ordered arc_id"
+    ]
+  }
+}
