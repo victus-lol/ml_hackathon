@@ -57,9 +57,12 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     a = np.sin(dphi / 2.0) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(dlam / 2.0) ** 2
     return 2.0 * R * np.arcsin(np.sqrt(a))
 
-def filter_gps_noise(track: pd.DataFrame, max_speed_mps: float = 45.0) -> tuple[pd.DataFrame, pd.DataFrame]:
+def filter_gps_noise(track: pd.DataFrame, max_speed_mps: float = 75.0) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Detects and filters GPS measurement noise, teleportation spikes, and non-monotonic timestamps.
+    Threshold calibrated to 75.0 m/s (270 km/h) to safely accommodate legitimate high-speed travel
+    on German Autobahns (e.g., A5, A9 present in the European benchmark dataset) while aggressively
+    eliminating severe multipath sensor spikes (>500 km/h).
     Returns:
         clean_track: DataFrame of retained, valid GPS observations.
         dropped_df: DataFrame logging dropped records with exact failure reasons and calculated speeds.
@@ -181,7 +184,7 @@ def run_spatial_preprocessing(
     print(f"  -> Directed Road Arcs: {len(arcs):,} arcs")
 
     # Step 1.1: GPS Measurement Noise, Outlier & Teleportation Spike Detection
-    track, dropped_df = filter_gps_noise(track, max_speed_mps=45.0)
+    track, dropped_df = filter_gps_noise(track, max_speed_mps=75.0)
     
     # Save dropped records audit table
     outputs_dir = os.path.abspath(os.path.join(data_dir, "..", "..", "..", "outputs"))

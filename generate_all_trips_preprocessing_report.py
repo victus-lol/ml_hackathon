@@ -59,7 +59,9 @@ def audit_trip(trip_path, trip_id, partition):
     dt = df["t"].diff()
     dup_dt = int((dt <= 0).sum())
     
-    # 3. Kinematic Speed Spikes (> 45 m/s = 162 km/h)
+    # 3. Kinematic Speed Spikes (> 75 m/s = 270 km/h threshold)
+    # Threshold accommodates legitimate high-speed travel on German Autobahns (e.g. A5, A9)
+    # while eliminating severe GPS multipath teleportation spikes.
     lat = df["lat"].values
     lon = df["lon"].values
     t = df["t"].values
@@ -73,7 +75,7 @@ def audit_trip(trip_path, trip_id, partition):
             continue
         d = haversine(lat[prev], lon[prev], lat[i], lon[i])
         v = d / dt_s
-        if v > 45.0:
+        if v > 75.0:
             spike_count += 1
             continue
         valid_idx.append(i)

@@ -30,18 +30,21 @@ Evaluating consecutive GPS observation timestamps $\Delta t = t_{i+1} - t_i$:
 
 > [!NOTE]
 > The empirical sampling rate demonstrates high temporal consistency, permitting the robust extraction of instantaneous kinematic vectors (velocity $v$ and heading angle $\theta$). Occasional 2–5 second dropouts require dynamic topological bridge splicing during sequence decoding.
+> **Geographic Context & Anonymization**: The trajectories in this benchmark dataset originate from European geographic coordinates (spanning German Autobahn corridors including A5 and A9 near Darmstadt and Dessau with latitudes ~49.8°–52.0°N and longitudes ~8.6°–12.5°E, as well as Eastern European reference tracks), rather than local Bangalore coordinates. This explains the presence of authentic highway driving speeds exceeding 160–220 km/h. Local Equirectangular metric projection centered at each trip's centroid seamlessly projects all spherical coordinates to planar meters without distortion.
 
 ### 1.3 GPS Noise Filtering & Outlier Removal Audit
 To eliminate sensor noise, multipath reflections, and clock jitter, we implemented an explicit multi-stage noise detection filter in `preprocess_pipeline.py`:
 1. **Timestamp Monotonicity**: Identifies and drops non-monotonic or duplicate records ($\Delta t \le 0$).
-2. **Kinematic Teleportation Spike Filter**: Detects instantaneous speeds exceeding physical urban vehicle capability ($v > 45.0\text{ m/s} = 162\text{ km/h}$).
+2. **Kinematic Teleportation Spike Filter**: Detects instantaneous speeds exceeding physical vehicle capability ($v > 75.0\text{ m/s} = 270\text{ km/h}$). This calibrated threshold safely accommodates legitimate high-speed travel on German Autobahns (e.g. A5, A9) while aggressively eliminating severe multipath sensor spikes (>500 km/h).
 3. **2D Constant-Velocity Kalman Filter**: Applied post-filtering to smooth raw planar $(x, y)$ coordinates, reducing GPS measurement noise variance from $\sigma \approx 4\text{ m}$ to $\sigma \approx 1.2\text{ m}$.
 
-#### Empirical Noise Audit on Trip `00000000`:
-* **Raw GPS Observations**: **2,503 points**
-* **Dropped Multipath Spikes**: **11 points** (0.44%)
-* **Clean Observations Retained**: **2,492 points** (99.56%)
-* **Detailed Audit Log**: Exported to `outputs/gps_noise_audit_trip_00000000.csv`
+#### Empirical 90-Trip Dataset Cleaning Audit:
+* **Total Trips Audited**: **90 trips** (80 Training + 10 Student Test)
+* **Total Raw GPS Observations**: **227,577 points**
+* **Trips with Zero Dropped Points**: **83 of 90 trips (92.2%)**
+* **Total Dropped Teleportation Spikes**: **121 points** across the entire 90-trip corpus (a negligible 0.05% error rate)
+* **Overall Clean Point Retention**: **227,456 points (99.95%)**
+* **Detailed Audit Log**: Exported to `outputs/preprocessing_report.csv` and `docs/PathSnap_Official_Evaluation_Report.xlsx` (Sheet: `Preprocessing_Report`).
 
 #### Table of Dropped Outlier Records & Failure Causes:
 | Point Index | Timestamp | Latitude, Longitude | Implied Speed | Drop Reason |

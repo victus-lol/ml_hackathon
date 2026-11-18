@@ -21,21 +21,71 @@ from shapely.strtree import STRtree
 # Banned columns check
 BANNED_COLUMNS = ["trip_id", "arc_id", "from_node", "to_node", "lon", "lat", "time", "u", "v"]
 
+def haversine_distance(lat1, lon1, lat2, lon2):
+    R = 6371000.0
+    phi1, phi2 = np.radians(lat1), np.radians(lat2)
+    dphi = np.radians(lat2 - lat1)
+    dlam = np.radians(lon2 - lon1)
+    a = np.sin(dphi / 2.0) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(dlam / 2.0) ** 2
+    return 2.0 * R * np.arcsin(np.sqrt(a))
+
+def filter_gps_noise(track: pd.DataFrame, max_speed_mps: float = 75.0) -> pd.DataFrame:
+    """Filters duplicate/non-monotonic timestamps and GPS spikes above 75 m/s (270 km/h)."""
+    valid_indices = [0]
+    for i in range(1, len(track)):
+        prev_idx = valid_indices[-1]
+        dt = track["t"].iloc[i] - track["t"].iloc[prev_idx]
+        if dt <= 0:
+            continue
+        dist = haversine_distance(
+            track["lat"].iloc[prev_idx], track["lon"].iloc[prev_idx],
+            track["lat"].iloc[i], track["lon"].iloc[i]
+        )
+        if dist / dt > max_speed_mps:
+            continue
+        valid_indices.append(i)
+    return track.iloc[valid_indices].reset_index(drop=True)
+
+def apply_kalman_filter(track_m: np.ndarray, dt: float = 1.0) -> np.ndarray:
+    """2D Constant-Velocity Kalman Filter smoothing planar (x, y) coordinates."""
+    N = len(track_m)
+    smoothed = np.zeros_like(track_m)
+    x = np.array([track_m[0, 0], track_m[0, 1], 0.0, 0.0])
+    P = np.eye(4) * 5.0
+    F = np.array([[1.0, 0.0, dt, 0.0], [0.0, 1.0, 0.0, dt], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
+    H = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
+    Q = np.eye(4) * 0.5
+    R = np.eye(2) * 4.0
+    for i in range(N):
+        x = F @ x
+        P = F @ P @ F.T + Q
+        z = track_m[i]
+        y = z - H @ x
+        S = H @ P @ H.T + R
+        K = P @ H.T @ np.linalg.inv(S)
+        x = x + K @ y
+        P = (np.eye(4) - K @ H) @ P
+        smoothed[i] = x[:2]
+    return smoothed
+
 def verify_feature_matrix_invariance(X: pd.DataFrame) -> None:
     offending_cols = [c for c in X.columns if any(banned == c.lower() for banned in BANNED_COLUMNS)]
     if offending_cols:
         raise ValueError(f"Feature matrix contains banned local columns: {offending_cols}")
 
-def extract_features_single_trip(trip_dir: str, trip_id: str, search_radius_m: float = 50.0, fallback_radius_m: float = 150.0):
+def extract_features_single_trip(trip_dir: str, trip_id: str, search_radius_m: float = 50.0, fallback_radius_m: float = 150.0, use_kalman: bool = True):
     track_path = os.path.join(trip_dir, f"{trip_id}.track")
     nodes_path = os.path.join(trip_dir, f"{trip_id}.nodes")
     arcs_path  = os.path.join(trip_dir, f"{trip_id}.arcs")
     route_path = os.path.join(trip_dir, f"{trip_id}.route")
 
-    track = pd.read_csv(track_path, sep=r"\s+", header=None, names=["lon", "lat", "t"])
+    raw_track = pd.read_csv(track_path, sep=r"\s+", header=None, names=["lon", "lat", "t"])
     nodes = pd.read_csv(nodes_path, sep=r"\s+", header=None, names=["lon", "lat"])
     arcs  = pd.read_csv(arcs_path, sep=r"\s+", header=None, names=["u", "v"])
     
+    # 0. Apply GPS Noise & Multipath Teleportation Filtering
+    track = filter_gps_noise(raw_track, max_speed_mps=75.0)
+
     route_arcs = []
     if os.path.exists(route_path):
         route_arcs = list(pd.read_csv(route_path, header=None)[0].values)
@@ -50,6 +100,12 @@ def extract_features_single_trip(trip_dir: str, trip_id: str, search_radius_m: f
 
     track_x = R * (np.radians(track["lon"].values) - lon0) * math.cos(lat0)
     track_y = R * (np.radians(track["lat"].values) - lat0)
+
+    # 1.1 Apply 2D Kalman Filter Smoothing
+    if use_kalman and len(track) > 2:
+        track_planar = np.column_stack([track_x, track_y])
+        smoothed_planar = apply_kalman_filter(track_planar)
+        track_x, track_y = smoothed_planar[:, 0], smoothed_planar[:, 1]
 
     # 2. Build STRtree
     u_idx, v_idx = arcs["u"].values, arcs["v"].values
